@@ -5,6 +5,7 @@ on:
     branches:
       - main # Or your default branch like 'master'
 
+# Grant the necessary permissions for the workflow to deploy to GitHub Pages
 permissions:
   contents: read
   pages: write
@@ -20,14 +21,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # -- START: New Build Steps --
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Use a recent LTS version of Node.js
+          cache: 'npm' # Cache npm dependencies for faster builds
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build # This command runs your build script
+      # -- END: New Build Steps --
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository as there's no build step
-          path: '.'
+          # Upload the build output folder
+          path: './dist' # IMPORTANT: Change './dist' if your build output is in a different folder (e.g., './build')
 
       - name: Deploy to GitHub Pages
         id: deployment
