@@ -15,6 +15,7 @@ interface DynamicPiecePrototype {
 }
 
 const App: React.FC = () => {
+  console.log('App.tsx: Component function body executing.');
   const initialFen = getInitialBoardFen();
   const [boardFen, setBoardFen] = useState<string>(initialFen);
   
@@ -40,6 +41,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    console.log("App.tsx: Initial Gemini client initialization useEffect running.");
     if (!isGeminiClientInitialized()) {
       try {
         console.log("Attempting to initialize Gemini client...");
@@ -63,6 +65,7 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
+    console.log("App.tsx: FEN parsing useEffect running. FEN:", boardFen, "GeminiReady:", geminiReady, "CurrentError:", error);
     try {
       const parsedFenData: ParsedFenData = parseFenForBoardState(boardFen);
       
@@ -102,12 +105,15 @@ const App: React.FC = () => {
       );
       setCanonicalPieceBoardState(newPieceBoardState);
       // Do not clear FEN error if gemini is not ready (initialization error might be present)
-      if (geminiReady) setError(null); 
+      if (geminiReady && (!error || !error.toLowerCase().includes("gemini client initialization error"))) {
+        // Clear only non-Gemini-init errors if Gemini is ready
+        setError(null); 
+      }
     } catch (e) {
       console.error("Error parsing FEN or building canonical piece state:", e, "FEN:", boardFen);
       const errorMsg = (e instanceof Error) ? e.message : "Invalid FEN string or board setup."
       // Avoid overwriting a more critical Gemini initialization error
-      if (!error || !error.toLowerCase().includes("gemini")) {
+      if (!error || !error.toLowerCase().includes("gemini client initialization error")) {
         setError(`Internal error: ${errorMsg} Cannot determine current player or board state from FEN: ${boardFen}. Board might not update correctly.`);
       }
     }
@@ -273,7 +279,7 @@ const App: React.FC = () => {
     }
 
     setIsLoading(true);
-    setError(null);
+    setError(null); // Clear previous move/processing errors
 
     let isStandardMovePath = false;
     let fenAfterPlayerStdMove: string | null = null;
@@ -404,8 +410,9 @@ const App: React.FC = () => {
     } catch (e: any) { 
       console.error("Error processing move in App.tsx:", e);
       const errorMessage = (e instanceof Error) ? e.message : "An unexpected error occurred.";
-      setError(errorMessage);
+      setError(errorMessage); // This will display the error to the user
       addMessage(`Error: ${errorMessage}`);
+      // If a standard move was made by player before AI error, revert to that state
       if (isStandardMovePath && fenAfterPlayerStdMove && playerStdMoveSan) {
         addMessage(`Game: An error occurred. Board is after your move: ${playerStdMoveSan}`);
         setBoardFen(fenAfterPlayerStdMove);
@@ -449,7 +456,7 @@ const App: React.FC = () => {
   } catch (renderParseError) {
     console.error("FEN parsing error during direct render preparation for Board:", renderParseError, "Using canonical/fallback values.");
     // Avoid overwriting a more critical Gemini initialization error
-    if (!error || !error.toLowerCase().includes("gemini")) {
+    if (!error || !error.toLowerCase().includes("gemini client initialization error")) {
         const errorMsg = (renderParseError instanceof Error) ? renderParseError.message : "Invalid FEN string."
         setError(`FEN Parsing Error (Render): ${errorMsg}`);
     }
@@ -467,7 +474,7 @@ const App: React.FC = () => {
       {!geminiReady && !error && (
          <div className="my-8 p-6 bg-neutral-800 border border-neutral-600 text-neutral-100 rounded-lg shadow-xl text-center">
             <p className="text-xl">Initializing Gemini Client...</p>
-            <p className="mt-2 text-sm">Please wait. If this takes too long, ensure your API_KEY environment variable is set.</p>
+            <p className="mt-2 text-sm">Please wait. If this takes too long, ensure your API_KEY environment variable is set or check console for errors.</p>
         </div>
       )}
       

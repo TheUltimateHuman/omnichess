@@ -5,15 +5,15 @@ import { LLMResponse, PlayerColor, TerrainObject } from '@/utils/types';
 let ai: GoogleGenAI | null = null;
 
 export function initializeGeminiClient(): void {
-  // API key MUST be obtained exclusively from process.env.API_KEY
-  const apiKey = process.env.API_KEY;
+  // Safely access process.env.API_KEY
+  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
 
   if (!apiKey) {
-    console.error("API Key is missing from process.env.API_KEY.");
+    console.error("API Key is missing. In a browser environment, this usually means it's not set via a build process or dedicated environment configuration. For development, ensure API_KEY is available. For deployment, ensure it is configured in the execution environment.");
     throw new Error("API Key is missing. Cannot initialize Gemini client. Ensure API_KEY environment variable is set.");
   }
   try {
-    ai = new GoogleGenAI({ apiKey }); // Direct usage of process.env.API_KEY as per guidelines
+    ai = new GoogleGenAI({ apiKey }); // Direct usage of apiKey string
     console.log("Gemini client successfully initialized in service.");
   } catch (error) {
     console.error("Error initializing GoogleGenAI client in service:", error);
@@ -21,7 +21,7 @@ export function initializeGeminiClient(): void {
     if (error instanceof Error && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid"))) {
         throw new Error("The API Key provided via environment variable is not valid. Please check the API_KEY.");
     }
-    // Forward other types of errors, e.g., network issues if any were to occur here.
+    // Forward other types of errors
     throw new Error(`Failed to initialize Gemini client: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -199,20 +199,18 @@ export const processMove = async (
 ): Promise<LLMResponse> => {
   if (!isGeminiClientInitialized()) {
       try {
-          // Attempt to initialize if not already. This will use process.env.API_KEY.
+          // Attempt to initialize if not already. This will use the safe API key access.
           initializeGeminiClient(); 
       } catch (initError) {
           console.error("Critical: Failed to initialize Gemini Client in processMove fallback:", initError);
           // Propagate error to stop further processing if initialization fails here.
-          // This error will typically be the "API Key is missing" or "API Key not valid" error.
           throw initError; 
       }
   }
   
-  // This check is theoretically redundant if initializeGeminiClient throws on failure,
-  // but it's a safeguard.
   if (!ai) {
-    console.error("Gemini client (ai instance) is null in processMove. This indicates an issue with initialization via process.env.API_KEY.");
+    // This state should ideally not be reached if initializeGeminiClient throws on failure.
+    console.error("Gemini client (ai instance) is null in processMove. This indicates an issue with initialization. The API_KEY might be missing or invalid.");
     throw new Error("Gemini client is not available. Please ensure API_KEY environment variable is set and client is initialized.");
   }
   
