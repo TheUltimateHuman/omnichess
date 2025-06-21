@@ -1,24 +1,25 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { LLMResponse, PlayerColor, TerrainObject } from '../utils/types'; 
+import { LLMResponse, PlayerColor, TerrainObject } from '../utils/types';
 
 let ai: GoogleGenerativeAI | null = null;
 
 export function initializeGeminiClient(): void {
-  // Safely access process.env.API_KEY
-  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+  // Vite replaces `process.env.GEMINI_API_KEY` with the actual value from your .env file during the build.
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    console.error("API Key is missing. In a browser environment, this usually means it's not set via a build process or dedicated environment configuration. For development, ensure API_KEY is available. For deployment, ensure it is configured in the execution environment.");
-    throw new Error("API Key is missing. Cannot initialize Gemini client. Ensure API_KEY environment variable is set.");
+    console.error("API Key is missing! Ensure GEMINI_API_KEY is set in your .env file and exposed in vite.config.ts.");
+    throw new Error("API Key is missing. Cannot initialize Gemini client.");
   }
+
   try {
-    ai = new GoogleGenerativeAI(apiKey); // Direct usage of apiKey string
+    ai = new GoogleGenerativeAI(apiKey);
     console.log("Gemini client successfully initialized in service.");
   } catch (error) {
     console.error("Error initializing GoogleGenerativeAI client in service:", error);
-    ai = null; 
+    ai = null;
     if (error instanceof Error && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid"))) {
-        throw new Error("The API Key provided via environment variable is not valid. Please check the API_KEY.");
+      throw new Error("The API Key is not valid. Please check the GEMINI_API_KEY in your .env file.");
     }
     // Forward other types of errors
     throw new Error(`Failed to initialize Gemini client: ${error instanceof Error ? error.message : String(error)}`);
@@ -29,11 +30,10 @@ export function isGeminiClientInitialized(): boolean {
   return !!ai;
 }
 
-
 const generatePrompt = (
-  currentFen: string, 
-  playerInput: string, 
-  playerColor: PlayerColor, 
+  currentFen: string,
+  playerInput: string,
+  playerColor: PlayerColor,
   opponentColor: PlayerColor,
   currentTerrain: Record<string, TerrainObject | null>,
   currentNumFiles: number,
@@ -43,9 +43,9 @@ const generatePrompt = (
   const playerRole = playerColor;
   const opponentRole = opponentColor;
   const terrainContextString = currentTerrain ? JSON.stringify(currentTerrain) : '{}';
-  const historyContextString = gameHistory.length > 0 
-      ? `\n\nRECENT GAME HISTORY (for context, most recent turn last):\n${gameHistory.join('\n---\n')}` 
-      : "\n\nNo prior game history for this session yet.";
+  const historyContextString = gameHistory.length > 0
+    ? `\n\nRECENT GAME HISTORY (for context, most recent turn last):\n${gameHistory.join('\n---\n')}`
+    : "\n\nNo prior game history for this session yet.";
 
   let systemInstructions = `
 You are a highly adaptive chess game engine.
@@ -120,8 +120,8 @@ HEALTH POINTS (HP) & DESTRUCTION:
 FEN STRING RULES - VERY IMPORTANT - ADHERE STRICTLY:
 1.  The piece placement part of the FEN string describes all ranks, separated by '/'.
 2.  DIMENSION CONSISTENCY (ABSOLUTELY CRITICAL): If your "llmInterpretation" or "appliedEffects" state that the board dimensions change (e.g., to N ranks and M files), then the piece placement part of your FEN strings ("boardAfterPlayerMoveFen" and "boardAfterOpponentMoveFen") MUST reflect these exact new dimensions.
-    *   It MUST contain exactly N rank strings (N segments separated by N-1 slashes).
-    *   Each of these N rank strings MUST describe exactly M files.
+        * It MUST contain exactly N rank strings (N segments separated by N-1 slashes).
+        * Each of these N rank strings MUST describe exactly M files.
 3.  Each rank string describes all squares for that rank, matching the current number of files.
 4.  Piece characters (e.g., 'P', 'r', 'W') represent one occupied square.
 5.  Numbers (e.g., 1-8, or higher if files > 8) represent that many CONSECUTIVE empty squares.
@@ -149,29 +149,29 @@ NEW PIECE DEFINITIONS:
 TERRAIN/OBJECTS:
 If the player's action implies creating, modifying, or removing terrain:
 1. Describe these in the "terrainChanges" array: { "square", "terrainType", "displayChar", "effectsDescription", "action" }.
-   "square" can be an algebraic coordinate (e.g., "e4", "j10"), "rank3", "filec". Coordinates must be valid for the current/new board dimensions.
-   "effectsDescription" should specify any HP damage dealt by the terrain.
-   "action" should be 'add' (or 'create') or 'remove'.
+    "square" can be an algebraic coordinate (e.g., "e4", "j10"), "rank3", "filec". Coordinates must be valid for the current/new board dimensions.
+    "effectsDescription" should specify any HP damage dealt by the terrain.
+    "action" should be 'add' (or 'create') or 'remove'.
 
 YOUR TASK (follow the specific instructions above for how to populate these fields):
 You must return a single JSON object structured as follows:
 {
   "playerMoveAttempt": {
-    "userInput": "${playerInput}", 
-    "parsed": { "from": "sq", "to": "sq", "pieceSymbol": "X", "color": "${playerRole}", "san": "ChosenSAN" } | null, 
-    "isValidChessMove": true, 
-    "llmInterpretation": "...", 
-    "appliedEffects": [/* optional details of changes */] 
+    "userInput": "${playerInput}",
+    "parsed": { "from": "sq", "to": "sq", "pieceSymbol": "X", "color": "${playerRole}", "san": "ChosenSAN" } | null,
+    "isValidChessMove": true,
+    "llmInterpretation": "...",
+    "appliedEffects": [/* optional details of changes */]
   },
-  "boardAfterPlayerMoveFen": "FEN_string", 
+  "boardAfterPlayerMoveFen": "FEN_string",
   "newPieceDefinitions": [/* { fenChar, displayChar, description, maxHp? } */] | null,
   "terrainChanges": [/* { square, terrainType, displayChar, effectsDescription, action } */] | null,
   "opponentResponse": {
-    "llmInterpretation": "...", 
-    "parsed": { "from": "sq", "to": "sq", "pieceSymbol": "x", "color": "${opponentRole}" } | null, 
-    "appliedEffects": [/* optional details of changes */] 
+    "llmInterpretation": "...",
+    "parsed": { "from": "sq", "to": "sq", "pieceSymbol": "x", "color": "${opponentRole}" } | null,
+    "appliedEffects": [/* optional details of changes */]
   },
-  "boardAfterOpponentMoveFen": "FEN_string", 
+  "boardAfterOpponentMoveFen": "FEN_string",
   "gameMessage": "Descriptive summary of the turn."
 }
 
@@ -185,7 +185,6 @@ Respond ONLY with the JSON object. Do not use markdown like \`\`\`json.
   return systemInstructions;
 };
 
-
 export const processMove = async (
   currentFen: string,
   playerInput: string,
@@ -197,33 +196,33 @@ export const processMove = async (
   gameHistory: string[]
 ): Promise<LLMResponse> => {
   if (!isGeminiClientInitialized()) {
-      try {
-          // Attempt to initialize if not already. This will use the safe API key access.
-          initializeGeminiClient(); 
-      } catch (initError) {
-          console.error("Critical: Failed to initialize Gemini Client in processMove fallback:", initError);
-          // Propagate error to stop further processing if initialization fails here.
-          throw initError; 
-      }
+    try {
+      // Attempt to initialize if not already. This will use the safe API key access.
+      initializeGeminiClient();
+    } catch (initError) {
+      console.error("Critical: Failed to initialize Gemini Client in processMove fallback:", initError);
+      // Propagate error to stop further processing if initialization fails here.
+      throw initError;
+    }
   }
-  
+
   if (!ai) {
     // This state should ideally not be reached if initializeGeminiClient throws on failure.
     console.error("Gemini client (ai instance) is null in processMove. This indicates an issue with initialization. The API_KEY might be missing or invalid.");
     throw new Error("Gemini client is not available. Please ensure API_KEY environment variable is set and client is initialized.");
   }
-  
+
   const prompt = generatePrompt(currentFen, playerInput, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory);
   let apiResponseText: string = '';
 
   try {
     console.log("Sending to Gemini - Current FEN:", currentFen, "Player Input:", playerInput, "Current Terrain:", currentTerrain, "Dimensions:", `${currentNumFiles}x${currentNumRanks}`, "History:", gameHistory);
-    
+
     const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     apiResponseText = response.text();
-    
+
     console.log("Raw Gemini API response text:", apiResponseText);
 
     let jsonStr = apiResponseText.trim();
@@ -232,22 +231,22 @@ export const processMove = async (
     if (match && match[1]) {
       jsonStr = match[1].trim();
     }
-    
-    const parsedData = JSON.parse(jsonStr) as LLMResponse; 
+
+    const parsedData = JSON.parse(jsonStr) as LLMResponse;
     console.log("Parsed Gemini JSON response:", parsedData);
-    
-    if (!parsedData.playerMoveAttempt || 
-        typeof parsedData.boardAfterPlayerMoveFen !== 'string' ||
-        typeof parsedData.boardAfterOpponentMoveFen !== 'string' ||
-        !parsedData.opponentResponse || 
-        typeof parsedData.opponentResponse.llmInterpretation !== 'string' ||
-        typeof parsedData.gameMessage !== 'string'
-        ) {
-        console.error("LLM response missing critical fields or opponentResponse structure:", parsedData);
-        throw new Error("LLM response structure is not as expected. Must include interpretations, FENs, gameMessage, and opponentResponse with llmInterpretation.");
+
+    if (!parsedData.playerMoveAttempt ||
+      typeof parsedData.boardAfterPlayerMoveFen !== 'string' ||
+      typeof parsedData.boardAfterOpponentMoveFen !== 'string' ||
+      !parsedData.opponentResponse ||
+      typeof parsedData.opponentResponse.llmInterpretation !== 'string' ||
+      typeof parsedData.gameMessage !== 'string'
+    ) {
+      console.error("LLM response missing critical fields or opponentResponse structure:", parsedData);
+      throw new Error("LLM response structure is not as expected. Must include interpretations, FENs, gameMessage, and opponentResponse with llmInterpretation.");
     }
-    
-    parsedData.playerMoveAttempt.isValidChessMove = true; 
+
+    parsedData.playerMoveAttempt.isValidChessMove = true;
     parsedData.playerMoveAttempt.userInput = playerInput;
 
 
@@ -259,26 +258,26 @@ export const processMove = async (
       console.warn("LLM provided terrainChanges but it's not an array. Ignoring.", parsedData.terrainChanges);
       delete parsedData.terrainChanges;
     }
-    
+
     if (parsedData.playerMoveAttempt.appliedEffects && !Array.isArray(parsedData.playerMoveAttempt.appliedEffects)) {
-        parsedData.playerMoveAttempt.appliedEffects = [];
+      parsedData.playerMoveAttempt.appliedEffects = [];
     } else if (!parsedData.playerMoveAttempt.appliedEffects) {
-        parsedData.playerMoveAttempt.appliedEffects = [];
+      parsedData.playerMoveAttempt.appliedEffects = [];
     }
 
     if (parsedData.opponentResponse.appliedEffects && !Array.isArray(parsedData.opponentResponse.appliedEffects)) {
-        parsedData.opponentResponse.appliedEffects = [];
+      parsedData.opponentResponse.appliedEffects = [];
     } else if (!parsedData.opponentResponse.appliedEffects) {
-        parsedData.opponentResponse.appliedEffects = [];
+      parsedData.opponentResponse.appliedEffects = [];
     }
 
 
     console.log("FEN after player's piece move (from LLM):", parsedData.boardAfterPlayerMoveFen);
     console.log("FEN after opponent's piece move (from LLM):", parsedData.boardAfterOpponentMoveFen);
-    if(parsedData.newPieceDefinitions && parsedData.newPieceDefinitions.length > 0) {
+    if (parsedData.newPieceDefinitions && parsedData.newPieceDefinitions.length > 0) {
       console.log("New piece definitions from LLM:", parsedData.newPieceDefinitions);
     }
-    if(parsedData.terrainChanges && parsedData.terrainChanges.length > 0) {
+    if (parsedData.terrainChanges && parsedData.terrainChanges.length > 0) {
       console.log("Terrain changes from LLM:", parsedData.terrainChanges);
     }
 
@@ -286,14 +285,14 @@ export const processMove = async (
 
   } catch (error: any) {
     console.error("Error calling Gemini API or parsing response:", error);
-    if (error.message && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid") )) {
-        throw new Error("Invalid Gemini API Key (obtained from environment variable). Please check your API_KEY.");
+    if (error.message && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid"))) {
+      throw new Error("Invalid Gemini API Key (obtained from environment variable). Please check your API_KEY.");
     }
-    if (error instanceof SyntaxError) { 
-        throw new Error(`Failed to parse LLM JSON response. Content was: '${apiResponseText}'. Error: ${error.message}`);
+    if (error instanceof SyntaxError) {
+      throw new Error(`Failed to parse LLM JSON response. Content was: '${apiResponseText}'. Error: ${error.message}`);
     }
     if (apiResponseText && (apiResponseText.toLowerCase().includes("billing account not found") || apiResponseText.toLowerCase().includes("quota exceeded"))) {
-        throw new Error(`Gemini API Error: ${apiResponseText}. Please check your Google Cloud project billing and API quotas.`);
+      throw new Error(`Gemini API Error: ${apiResponseText}. Please check your Google Cloud project billing and API quotas.`);
     }
     // Fallback error message
     const errorMessage = error instanceof Error ? error.message : String(error);
