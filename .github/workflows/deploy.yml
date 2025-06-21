@@ -34,7 +34,7 @@ jobs:
       - name: Build project
         run: npm run build # This command runs your build script
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       # -- END: New Build Steps --
 
       - name: Setup Pages

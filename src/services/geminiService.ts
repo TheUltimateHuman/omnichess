@@ -4,8 +4,7 @@ import { LLMResponse, PlayerColor, TerrainObject } from '../utils/types';
 let ai: GoogleGenAI | null = null;
 
 export function initializeGeminiClient(): void {
-  // Safely access process.env.API_KEY
-  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!apiKey) {
     console.error("API Key is missing. In a browser environment, this usually means it's not set via a build process or dedicated environment configuration. For development, ensure API_KEY is available. For deployment, ensure it is configured in the execution environment.");
