@@ -28,11 +28,6 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // API Key Management for GitHub Pages
-  // Initialize apiKey to empty and showApiKeyInput to true, as process.env is not available in browser
-  const [apiKey, setApiKey] = useState<string>('');
-  const [apiKeyInput, setApiKeyInput] = useState<string>('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(true); // Always show if no key yet
   const [geminiReady, setGeminiReady] = useState<boolean>(false);
 
   const [dynamicPiecePrototypes, setDynamicPiecePrototypes] = useState<Record<string, DynamicPiecePrototype>>({});
@@ -40,33 +35,31 @@ const App: React.FC = () => {
   const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
   const [gameHistoryForLLM, setGameHistoryForLLM] = useState<string[]>([]);
 
+  const addMessage = useCallback((message: string) => {
+    setGameMessages(prev => [...prev.slice(-15), message]); 
+  }, []);
 
   useEffect(() => {
-    // Attempt to initialize Gemini client only if an API key is provided
-    if (apiKey && !isGeminiClientInitialized()) {
+    if (!isGeminiClientInitialized()) {
       try {
-        initializeGeminiClient(apiKey);
+        console.log("Attempting to initialize Gemini client...");
+        initializeGeminiClient(); // API key will be sourced from process.env.API_KEY by the service
         setGeminiReady(true);
-        setShowApiKeyInput(false); // Hide input form once key is set and client initialized
-        setError(null); 
+        setError(null);
         console.log("Gemini client initialized successfully.");
+        // addMessage("Gemini client initialized. Ready to play."); // Optional: user-facing message
       } catch (e) {
-        const errorMsg = e instanceof Error ? e.message : "Failed to initialize Gemini client.";
-        setError(`API Key Error: ${errorMsg}. Please ensure your API key is valid.`);
+        const errorMsg = e instanceof Error ? e.message : "Unknown error during initialization.";
+        setError(`Gemini Client Initialization Error: ${errorMsg}. Please ensure the API_KEY environment variable is correctly configured.`);
         setGeminiReady(false);
-        setShowApiKeyInput(true); // Show input form again if initialization fails
         console.error("Failed to initialize Gemini client:", e);
       }
-    } else if (isGeminiClientInitialized()) {
-        // If client is already initialized (e.g. from a previous successful attempt with a key)
+    } else {
         setGeminiReady(true);
-        setShowApiKeyInput(false);
-    } else if (!apiKey) {
-        // If there's no API key, ensure the input form is shown
-        setShowApiKeyInput(true);
-        setGeminiReady(false);
+        setError(null);
+        console.log("Gemini client was already initialized.");
     }
-  }, [apiKey]);
+  }, []); // Runs once on mount
 
 
   useEffect(() => {
@@ -108,17 +101,17 @@ const App: React.FC = () => {
         })
       );
       setCanonicalPieceBoardState(newPieceBoardState);
-      if (!showApiKeyInput) setError(null); // Clear FEN errors if API key input is not showing
+      // Do not clear FEN error if gemini is not ready (initialization error might be present)
+      if (geminiReady) setError(null); 
     } catch (e) {
       console.error("Error parsing FEN or building canonical piece state:", e, "FEN:", boardFen);
       const errorMsg = (e instanceof Error) ? e.message : "Invalid FEN string or board setup."
-      setError(`Internal error: ${errorMsg} Cannot determine current player or board state from FEN: ${boardFen}. Board might not update correctly.`);
+      // Avoid overwriting a more critical Gemini initialization error
+      if (!error || !error.toLowerCase().includes("gemini")) {
+        setError(`Internal error: ${errorMsg} Cannot determine current player or board state from FEN: ${boardFen}. Board might not update correctly.`);
+      }
     }
-  }, [boardFen, dynamicPiecePrototypes, showApiKeyInput]);
-
-  const addMessage = useCallback((message: string) => {
-    setGameMessages(prev => [...prev.slice(-15), message]); 
-  }, []);
+  }, [boardFen, dynamicPiecePrototypes, geminiReady, error]); // Added geminiReady and error to dependency
 
   useEffect(() => {
     if (!geminiReady || isGameOver) return; 
@@ -274,7 +267,7 @@ const App: React.FC = () => {
   const handlePlayerMove = useCallback(async (inputText: string) => {
     if (!geminiReady || isGameOver) {
         if (!geminiReady) {
-            addMessage("Error: API Key not configured or invalid. Cannot process move.");
+            addMessage("Error: Gemini client not ready. Cannot process move. Check console for API Key errors.");
         }
         return;
     }
@@ -364,7 +357,7 @@ const App: React.FC = () => {
 
             const response: LLMResponse = await processMove(
                 fenAfterPlayerStdMove, aiPromptInput, aiPlayerColor, humanPlayerActualColor,
-                boardTerrain, 8, 8, gameHistoryForLLM, apiKey
+                boardTerrain, 8, 8, gameHistoryForLLM
             );
             llmResponseForSideEffects = response;
             addMessage(`Gemini (${aiPlayerColor}): ${response.gameMessage}`);
@@ -388,7 +381,7 @@ const App: React.FC = () => {
             
             const response: LLMResponse = await processMove(
                 boardFen, inputText, humanPlayerActualColor, opponentColor, 
-                boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM, apiKey
+                boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM
             );
             llmResponseForSideEffects = response;
             addMessage(`Gemini: ${response.gameMessage}`); 
@@ -420,46 +413,8 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [boardFen, currentPlayer, addMessage, geminiReady, apiKey, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM]); 
+  }, [boardFen, currentPlayer, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM]); 
 
-  const handleApiKeySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (apiKeyInput.trim()) {
-      setApiKey(apiKeyInput.trim());
-    } else {
-      setError("API Key cannot be empty.");
-    }
-  };
-
-  if (showApiKeyInput && !geminiReady) {
-    return (
-      <div className="container mx-auto p-4 flex flex-col items-center min-h-screen bg-black text-white">
-        <header className="mb-8 text-center">
-          <h1 className="text-5xl font-bold text-white">OMNICHESS</h1>
-        </header>
-        <div className="p-8 text-center bg-neutral-800 border border-neutral-600 text-neutral-100 rounded-lg shadow-xl max-w-md w-full"> 
-          <h2 className="text-2xl font-bold mb-4">Gemini API Key Required</h2>
-          <p className="mb-4">Please enter your Google Gemini API Key to play Omnichess. You can obtain a key from <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">Google AI Studio</a>.</p>
-          {error && <div className="mb-4 p-3 bg-red-900 text-red-100 border border-red-500 rounded-md" role="alert">{error}</div>}
-          <form onSubmit={handleApiKeySubmit} className="space-y-4">
-            <input
-              type="password"
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              placeholder="Enter your API Key"
-              className="w-full p-3 bg-neutral-700 border border-neutral-500 text-neutral-100 rounded-md focus:ring-2 focus:ring-blue-400 outline-none"
-            />
-            <button
-              type="submit"
-              className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-md shadow-md transition-colors duration-150"
-            >
-              Set API Key
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   let displayNumFiles = canonicalNumFiles;
   let displayNumRanks = canonicalNumRanks;
@@ -493,6 +448,11 @@ const App: React.FC = () => {
     );
   } catch (renderParseError) {
     console.error("FEN parsing error during direct render preparation for Board:", renderParseError, "Using canonical/fallback values.");
+    // Avoid overwriting a more critical Gemini initialization error
+    if (!error || !error.toLowerCase().includes("gemini")) {
+        const errorMsg = (renderParseError instanceof Error) ? renderParseError.message : "Invalid FEN string."
+        setError(`FEN Parsing Error (Render): ${errorMsg}`);
+    }
   }
 
 
@@ -502,7 +462,14 @@ const App: React.FC = () => {
         <h1 className="text-5xl font-bold text-white">OMNICHESS</h1>
       </header>
 
-      {error && <div className="mb-4 p-3 bg-red-900 text-red-100 border border-red-500 rounded-md shadow-lg" role="alert">{error}</div>} 
+      {error && <div className="mb-4 p-3 bg-red-900 text-red-100 border border-red-500 rounded-md shadow-lg w-full max-w-lg text-center" role="alert">{error}</div>} 
+      
+      {!geminiReady && !error && (
+         <div className="my-8 p-6 bg-neutral-800 border border-neutral-600 text-neutral-100 rounded-lg shadow-xl text-center">
+            <p className="text-xl">Initializing Gemini Client...</p>
+            <p className="mt-2 text-sm">Please wait. If this takes too long, ensure your API_KEY environment variable is set.</p>
+        </div>
+      )}
       
       <div className="flex flex-col items-center gap-8 w-full max-w-5xl">
         <div className="flex justify-center"> 

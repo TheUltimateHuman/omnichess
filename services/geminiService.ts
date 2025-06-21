@@ -2,25 +2,27 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { LLMResponse, PlayerColor, TerrainObject } from '@/utils/types'; 
 
-// process.env.API_KEY will not be used directly here for GitHub Pages deployment.
-// The key will be passed from App.tsx after user input or if found elsewhere.
-
 let ai: GoogleGenAI | null = null;
 
-export function initializeGeminiClient(apiKey: string): void {
+export function initializeGeminiClient(): void {
+  // API key MUST be obtained exclusively from process.env.API_KEY
+  const apiKey = process.env.API_KEY;
+
   if (!apiKey) {
-    throw new Error("API Key is missing. Cannot initialize Gemini client.");
+    console.error("API Key is missing from process.env.API_KEY.");
+    throw new Error("API Key is missing. Cannot initialize Gemini client. Ensure API_KEY environment variable is set.");
   }
   try {
-    ai = new GoogleGenAI({ apiKey });
+    ai = new GoogleGenAI({ apiKey }); // Direct usage of process.env.API_KEY as per guidelines
     console.log("Gemini client successfully initialized in service.");
   } catch (error) {
     console.error("Error initializing GoogleGenAI client in service:", error);
-    ai = null; // Ensure ai is null if initialization fails
-    if (error instanceof Error && error.message.toLowerCase().includes("api key not valid")) {
-        throw new Error("The provided API Key is not valid. Please check the key and try again.");
+    ai = null; 
+    if (error instanceof Error && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid"))) {
+        throw new Error("The API Key provided via environment variable is not valid. Please check the API_KEY.");
     }
-    throw error; // Re-throw other errors
+    // Forward other types of errors, e.g., network issues if any were to occur here.
+    throw new Error(`Failed to initialize Gemini client: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -193,24 +195,25 @@ export const processMove = async (
   currentTerrain: Record<string, TerrainObject | null>,
   currentNumFiles: number,
   currentNumRanks: number,
-  gameHistory: string[],
-  apiKeyFromApp: string // Added apiKey parameter
+  gameHistory: string[]
 ): Promise<LLMResponse> => {
-  // Initialize client if not already, or if key changes (though not explicitly handled here)
   if (!isGeminiClientInitialized()) {
       try {
-          initializeGeminiClient(apiKeyFromApp);
+          // Attempt to initialize if not already. This will use process.env.API_KEY.
+          initializeGeminiClient(); 
       } catch (initError) {
-          console.error("Critical: Failed to initialize Gemini Client in processMove:", initError);
-          throw initError; // Propagate error to stop further processing
+          console.error("Critical: Failed to initialize Gemini Client in processMove fallback:", initError);
+          // Propagate error to stop further processing if initialization fails here.
+          // This error will typically be the "API Key is missing" or "API Key not valid" error.
+          throw initError; 
       }
   }
   
+  // This check is theoretically redundant if initializeGeminiClient throws on failure,
+  // but it's a safeguard.
   if (!ai) {
-    // This should ideally not be reached if initializeGeminiClient was successful
-    // or if isGeminiClientInitialized() was checked before calling processMove.
-    console.error("Gemini client (ai instance) is null in processMove. This indicates an issue with initialization.");
-    throw new Error("Gemini client is not available. Please ensure API Key is set and client is initialized.");
+    console.error("Gemini client (ai instance) is null in processMove. This indicates an issue with initialization via process.env.API_KEY.");
+    throw new Error("Gemini client is not available. Please ensure API_KEY environment variable is set and client is initialized.");
   }
   
   const prompt = generatePrompt(currentFen, playerInput, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory);
@@ -219,7 +222,7 @@ export const processMove = async (
   try {
     console.log("Sending to Gemini - Current FEN:", currentFen, "Player Input:", playerInput, "Current Terrain:", currentTerrain, "Dimensions:", `${currentNumFiles}x${currentNumRanks}`, "History:", gameHistory);
     const geminiApiResponse: GenerateContentResponse = await ai.models.generateContent({ 
-        model: 'gemini-2.5-flash-preview-04-17', // Corrected model name
+        model: 'gemini-2.5-flash-preview-04-17',
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -290,17 +293,17 @@ export const processMove = async (
 
   } catch (error: any) {
     console.error("Error calling Gemini API or parsing response:", error);
-    if (error.message && error.message.toLowerCase().includes("api key not valid")) {
-        // This specific error might be caught during initialization now, but good to have a catch-all
-        throw new Error("Invalid Gemini API Key. Please check your API_KEY and ensure it's correct.");
+    if (error.message && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid") )) {
+        throw new Error("Invalid Gemini API Key (obtained from environment variable). Please check your API_KEY.");
     }
     if (error instanceof SyntaxError) { 
         throw new Error(`Failed to parse LLM JSON response. Content was: '${apiResponseText}'. Error: ${error.message}`);
     }
-    // Check for specific Gemini API errors if possible, e.g. related to billing or quotas
-    if (apiResponseText.toLowerCase().includes("billing account not found") || apiResponseText.toLowerCase().includes("quota exceeded")) {
+    if (apiResponseText && (apiResponseText.toLowerCase().includes("billing account not found") || apiResponseText.toLowerCase().includes("quota exceeded"))) {
         throw new Error(`Gemini API Error: ${apiResponseText}. Please check your Google Cloud project billing and API quotas.`);
     }
-    throw new Error(`Gemini API error: ${error.message || 'Unknown error during API call or response processing.'}`);
+    // Fallback error message
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Gemini API error: ${errorMessage}`);
   }
 };
