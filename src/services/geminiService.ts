@@ -225,6 +225,7 @@ FEN AUDIT & INTERNAL VALIDATION (MANDATORY):
   4. Any checks you performed to ensure the FEN is valid (e.g., each rank sums to the correct number of files, all pieces are accounted for, no extra or missing rows).
   5. For custom piece moves, verify that the move follows the defined movement pattern from "newPieceDefinitions".
   6. If any moves were adjusted due to movement rule violations, explain the adjustment in the audit.
+
 - This field is for internal validation and debugging ONLY. Do NOT reference or display the contents of "internalFenAudit" in any user-facing messages, game messages, or summaries.
 - You must always include this audit, even if the FEN did not change.
 
