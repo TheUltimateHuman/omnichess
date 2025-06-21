@@ -12,13 +12,13 @@ export const UNICODE_PIECES: Record<PlayerColor, Partial<Record<string, string>>
     'W': '🐺', 
   },
   [PlayerColor.BLACK]: {
-    'K': '♚',
-    'Q': '♛',
-    'R': '♜',
-    'B': '♝',
-    'N': '♞',
-    'P': '♟︎',
-    'W': '🐺', 
+    'K': '♚\uFE0E',
+    'Q': '♛\uFE0E',
+    'R': '♜\uFE0E',
+    'B': '♝\uFE0E',
+    'N': '♞\uFE0E',
+    'P': '♟︎\uFE0E',
+    'W': '🐺\uFE0E', 
   },
 };
 
