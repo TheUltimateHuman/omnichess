@@ -1,5 +1,5 @@
 
-import { PlayerColor, Piece, BasicPiece } from '@/utils/types';
+import { PlayerColor, BasicPiece } from '@/utils/types'; // Removed Piece import
 
 // UNICODE_PIECES keys are now uppercase FEN characters
 export const UNICODE_PIECES: Record<PlayerColor, Partial<Record<string, string>>> = {
