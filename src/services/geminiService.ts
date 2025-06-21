@@ -139,6 +139,24 @@ FEN STRING RULES - VERY IMPORTANT - ADHERE STRICTLY:
 9.  PIECE MOVEMENT: When a piece moves from one square to another (including for a capture), its FEN character MUST be removed from its original square and placed on the new square. The original square must then be accounted for as empty (usually by adjusting a number or replacing with '1' if it was adjacent to other pieces). A piece cannot exist in two places simultaneously.
 10. POSITIONAL ACCURACY: If your interpretation involves a piece moving to a specific square (e.g., "Knight moves to c6"), the final position of that piece's FEN character in the "boardAfterPlayerMoveFen" or "boardAfterOpponentMoveFen" MUST accurately reflect that target square.
 
+FEN AUDIT & INTERNAL VALIDATION (MANDATORY):
+- You MUST include an array field "internalFenAudit" in your JSON output.
+- For every move, provide a step-by-step explanation in "internalFenAudit" of how you constructed the FEN(s), including:
+  1. How each rank string was built or modified, and how it matches the described actions.
+  2. How the number of ranks and files in the FEN matches the board's dimensions after any changes.
+  3. How each described action (e.g., adding/removing rows, moving pieces) is reflected in the FEN.
+  4. Any checks you performed to ensure the FEN is valid (e.g., each rank sums to the correct number of files, all pieces are accounted for, no extra or missing rows).
+- This field is for internal validation and debugging ONLY. Do NOT reference or display the contents of "internalFenAudit" in any user-facing messages, game messages, or summaries.
+- You must always include this audit, even if the FEN did not change.
+
+CHECKLIST (Confirm before outputting):
+- [ ] For each FEN, every rank string sums to the correct number of files.
+- [ ] The number of ranks matches the board's current dimensions.
+- [ ] All described actions are reflected in the FEN.
+- [ ] No pieces are omitted or duplicated.
+- [ ] The FEN matches the narrative and applied effects.
+- [ ] The audit is included in "internalFenAudit" and is not referenced in any user-facing field.
+
 NEW PIECE DEFINITIONS:
 1. Assign it a unique single FEN character (uppercase for White, lowercase for Black).
 2. For each new piece type, you MUST provide its definition as an object within the "newPieceDefinitions" array. Each definition object requires: "fenChar" (string), "displayChar" (string), "description" (string), and optionally "maxHp" (number, defaults to 3 if omitted).
@@ -170,7 +188,8 @@ You must return a single JSON object structured as follows:
     "appliedEffects": [/* optional details of changes */]
   },
   "boardAfterOpponentMoveFen": "FEN_string",
-  "gameMessage": "Descriptive summary of the turn."
+  "gameMessage": "Descriptive summary of the turn.",
+  "internalFenAudit": ["step-by-step audit here"]
 }
 
 Ensure the FEN strings correctly reflect the active player ('w' or 'b') for whose turn it is next.
