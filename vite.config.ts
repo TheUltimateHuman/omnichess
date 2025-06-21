@@ -1,30 +1,35 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import { URL, fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-  const base = mode === 'production' ? '' : '/';
+    // Load standard .env files and custom js.env
+    const env = {
+      ...loadEnv(mode, process.cwd(), ''),
+      ...(fs.existsSync('js.env') ? dotenv.parse(fs.readFileSync('js.env')) : {})
+    };
 
-  return {
-    base: base,
-    plugins: [
-      react(),
-    ],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
-    resolve: {
-      alias: {
-        // We are keeping this alias for your project's root directory
-        '@': fileURLToPath(new URL('.', import.meta.url)),
+    // Configure the base path for correct asset loading
+    const base = mode === 'production' ? '' : '/';
 
-        // We are REMOVING the specific alias for '@google/genai'
-      }
-    },
-    // This setting should be enough to handle the Google AI package
-    optimizeDeps: {
-      include: ['@google/genai'],
-    }
-  };
+    return {
+      base: base,
+      plugins: [
+        react(),
+      ],
+      define: {
+        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      },
+      resolve: {
+        alias: {
+          '@': path.resolve(process.cwd(), './src'),
+        }
+      },
+      optimizeDeps: {
+        include: ['@google/genai'],
+      },
+    };
 });
