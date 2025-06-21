@@ -31,12 +31,12 @@ export const Square: React.FC<SquareProps> = ({ piece, terrain, isDark, dynamicD
     if (piece.color === PlayerColor.WHITE) {
       pieceColorClass = 'text-neutral-100'; // Always light for white pieces
       if (dynamicDisplayChar && dynamicDisplayChar !== piece.symbol) { // Apply filter if it's a special display char (emoji)
-        pieceStyleOverride.filter = 'grayscale(100%) brightness(300%) contrast(150%)'; // Make white emojis very light
+        // pieceStyleOverride.filter = 'grayscale(100%) brightness(300%) contrast(150%)'; // Make white emojis very light
       }
     } else { // PlayerColor.BLACK
       pieceColorClass = 'text-black'; // Always dark for black pieces
       if (dynamicDisplayChar && dynamicDisplayChar !== piece.symbol) { // Apply filter if it's a special display char (emoji)
-         pieceStyleOverride.filter = 'grayscale(100%) brightness(20%) contrast(150%)'; // Make black emojis very dark
+         // pieceStyleOverride.filter = 'grayscale(100%) brightness(20%) contrast(150%)'; // Make black emojis very dark
       }
     }
   }
