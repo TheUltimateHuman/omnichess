@@ -3,9 +3,9 @@
 // These are minimal stubs to satisfy the compiler; full type safety depends
 // on the actual library loaded at runtime.
 
-declare module '@google/generative-ai' {
+declare module '@google/genai' {
   export interface GenerateContentResponse {
-    text(): string;
+    text: string;
     // Minimal stub. Add other properties if they are accessed directly from the response.
     // e.g., candidates?: Array<{ groundingMetadata?: { groundingChunks?: Array<{ web: { uri: string; title: string; } }> } }>;
   }
@@ -43,17 +43,24 @@ declare module '@google/generative-ai' {
     generatedImages: GeneratedImage[];
   }
 
-  export class GoogleGenerativeAI {
-    constructor(apiKey: string);
 
-    getGenerativeModel(params: { model: string }): GenerativeModel;
-  }
+  export class GoogleGenAI {
+    constructor(config: { apiKey: string });
 
-  export interface GenerativeModel {
-    generateContent(prompt: string): Promise<{ response: GenerateContentResponse }>;
-    generateContentStream(prompt: string): Promise<AsyncIterable<GenerateContentResponse>>; // For streaming
-    generateImages(params: GenerateImageRequest): Promise<GenerateImageResponse>;
-    // Add other model methods if used, e.g., countTokens, embedContent
+    models: {
+      generateContent(params: GenerateContentRequest): Promise<GenerateContentResponse>;
+      generateContentStream(params: GenerateContentRequest): Promise<AsyncIterable<GenerateContentResponse>>; // For streaming
+      generateImages(params: GenerateImageRequest): Promise<GenerateImageResponse>;
+      // Add other model methods if used, e.g., countTokens, embedContent
+    };
+
+    chats: {
+      create(params: {
+        model: string;
+        config?: GenerateContentRequest['config']; // Reuse config from generateContent
+        history?: Array<any>; // Define history more accurately if needed
+      }): Chat;
+    };
   }
 
   export interface Chat {

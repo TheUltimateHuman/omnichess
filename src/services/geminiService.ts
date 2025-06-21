@@ -1,25 +1,24 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { LLMResponse, PlayerColor, TerrainObject } from '../utils/types';
 
-let ai: GoogleGenerativeAI | null = null;
+let ai: GoogleGenAI | null = null;
 
 export function initializeGeminiClient(): void {
-  // Vite replaces `process.env.GEMINI_API_KEY` with the actual value from your .env file during the build.
-  const apiKey = process.env.GEMINI_API_KEY;
+  // Safely access process.env.API_KEY
+  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
 
   if (!apiKey) {
-    console.error("API Key is missing! Ensure GEMINI_API_KEY is set in your .env file and exposed in vite.config.ts.");
-    throw new Error("API Key is missing. Cannot initialize Gemini client.");
+    console.error("API Key is missing. In a browser environment, this usually means it's not set via a build process or dedicated environment configuration. For development, ensure API_KEY is available. For deployment, ensure it is configured in the execution environment.");
+    throw new Error("API Key is missing. Cannot initialize Gemini client. Ensure API_KEY environment variable is set.");
   }
-
   try {
-    ai = new GoogleGenerativeAI(apiKey);
+    ai = new GoogleGenAI({ apiKey }); // Direct usage of apiKey string
     console.log("Gemini client successfully initialized in service.");
   } catch (error) {
-    console.error("Error initializing GoogleGenerativeAI client in service:", error);
-    ai = null;
+    console.error("Error initializing GoogleGenAI client in service:", error);
+    ai = null; 
     if (error instanceof Error && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid"))) {
-      throw new Error("The API Key is not valid. Please check the GEMINI_API_KEY in your .env file.");
+        throw new Error("The API Key provided via environment variable is not valid. Please check the API_KEY.");
     }
     // Forward other types of errors
     throw new Error(`Failed to initialize Gemini client: ${error instanceof Error ? error.message : String(error)}`);
@@ -217,12 +216,14 @@ export const processMove = async (
 
   try {
     console.log("Sending to Gemini - Current FEN:", currentFen, "Player Input:", playerInput, "Current Terrain:", currentTerrain, "Dimensions:", `${currentNumFiles}x${currentNumRanks}`, "History:", gameHistory);
+    
+    const geminiApiResponse: GenerateContentResponse = await ai.models.generateContent({ 
+        model: 'gemini-pro',
+        contents: prompt,
+    });
 
-    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    apiResponseText = response.text();
-
+    apiResponseText = geminiApiResponse.text; 
+    
     console.log("Raw Gemini API response text:", apiResponseText);
 
     let jsonStr = apiResponseText.trim();

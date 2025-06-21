@@ -19,12 +19,12 @@ export default defineConfig(({ mode }) => {
         // We are keeping this alias for your project's root directory
         '@': fileURLToPath(new URL('.', import.meta.url)),
 
-        // We are REMOVING the specific alias for '@google/generative-ai'
+        // We are REMOVING the specific alias for '@google/genai'
       }
     },
     // This setting should be enough to handle the Google AI package
     optimizeDeps: {
-      include: ['@google/generative-ai'],
+      include: ['@google/genai'],
     }
   };
 });
