@@ -48,6 +48,12 @@ export const Square: React.FC<SquareProps> = ({ piece, terrain, isDark, dynamicD
     backgroundColor: isDark ? '#404040' : '#a3a3a3', // neutral-700 and neutral-400
   };
 
+  const pieceStyle: React.CSSProperties = {
+    ...pieceStyleOverride,
+    color: piece?.color === PlayerColor.BLACK ? '#000000' : '#FFFFFF',
+    fontSize: 'clamp(1.25rem, 7vw, 2.25rem)',
+  };
+
   return (
     <div 
       className="w-full h-full flex flex-col items-center justify-center transition-colors duration-150 relative select-none p-0.5"
@@ -82,8 +88,8 @@ export const Square: React.FC<SquareProps> = ({ piece, terrain, isDark, dynamicD
       {/* Piece Symbol */}
       {piece && (
         <span 
-          className={`text-2xl sm:text-3xl ${pieceColorClass} relative z-10`}
-          style={{fontSize: 'clamp(1.25rem, 7vw, 2.25rem)', ...pieceStyleOverride }} 
+          className="text-2xl sm:text-3xl relative z-10"
+          style={pieceStyle} 
           aria-label={piece ? `${piece.color} ${piece.symbol}` : 'empty square'}
         >
           {displaySymbol}
