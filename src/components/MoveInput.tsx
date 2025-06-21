@@ -19,7 +19,7 @@ export const MoveInput: React.FC<MoveInputProps> = ({ onMoveSubmit, isLoading })
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="flex flex-col space-y-3 items-center">
-        <label htmlFor="moveInput" className="text-sm font-medium text-neutral-300"> {/* text-black to text-neutral-300 */}
+        <label htmlFor="moveInput" className="text-base font-medium text-neutral-300 mb-1">
           Your Move:
         </label>
         <input
@@ -29,12 +29,12 @@ export const MoveInput: React.FC<MoveInputProps> = ({ onMoveSubmit, isLoading })
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Type your move here..."
           disabled={isLoading}
-          className="p-3 bg-neutral-800 border border-neutral-600 text-neutral-100 rounded-md shadow-sm focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400 outline-none transition-all w-1/3" // Dark theme styles
+          className="p-4 bg-neutral-800 border border-neutral-600 text-lg text-neutral-100 rounded-md shadow-sm focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400 outline-none transition-all w-2/5"
         />
         <button
           type="submit"
           disabled={isLoading}
-          className="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black font-semibold rounded-md shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2 focus:ring-offset-black w-1/3" // Contrasting button for dark theme
+          className="px-6 py-4 bg-neutral-200 hover:bg-neutral-300 text-black font-semibold text-lg rounded-md shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2 focus:ring-offset-black w-2/5"
         >
           {isLoading ? 'Processing...' : 'Submit'}
         </button>
