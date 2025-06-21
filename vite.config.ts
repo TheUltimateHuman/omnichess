@@ -4,7 +4,7 @@ import { URL, fileURLToPath } from 'node:url';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const base = mode === 'production' ? '/OMNICHESS/' : '/';
+  const base = mode === 'production' ? '' : '/';
 
   return {
     base: base,
