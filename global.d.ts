@@ -1,12 +1,11 @@
-
 // This file provides ambient type declarations for modules loaded via import maps,
 // allowing TypeScript to compile without having these packages in node_modules.
 // These are minimal stubs to satisfy the compiler; full type safety depends
 // on the actual library loaded at runtime.
 
-declare module '@google/genai' {
+declare module '@google/generative-ai' {
   export interface GenerateContentResponse {
-    text: string;
+    text(): string;
     // Minimal stub. Add other properties if they are accessed directly from the response.
     // e.g., candidates?: Array<{ groundingMetadata?: { groundingChunks?: Array<{ web: { uri: string; title: string; } }> } }>;
   }
@@ -44,24 +43,17 @@ declare module '@google/genai' {
     generatedImages: GeneratedImage[];
   }
 
+  export class GoogleGenerativeAI {
+    constructor(apiKey: string);
 
-  export class GoogleGenAI {
-    constructor(config: { apiKey: string });
+    getGenerativeModel(params: { model: string }): GenerativeModel;
+  }
 
-    models: {
-      generateContent(params: GenerateContentRequest): Promise<GenerateContentResponse>;
-      generateContentStream(params: GenerateContentRequest): Promise<AsyncIterable<GenerateContentResponse>>; // For streaming
-      generateImages(params: GenerateImageRequest): Promise<GenerateImageResponse>;
-      // Add other model methods if used, e.g., countTokens, embedContent
-    };
-
-    chats: {
-      create(params: {
-        model: string;
-        config?: GenerateContentRequest['config']; // Reuse config from generateContent
-        history?: Array<any>; // Define history more accurately if needed
-      }): Chat;
-    };
+  export interface GenerativeModel {
+    generateContent(prompt: string): Promise<{ response: GenerateContentResponse }>;
+    generateContentStream(prompt: string): Promise<AsyncIterable<GenerateContentResponse>>; // For streaming
+    generateImages(params: GenerateImageRequest): Promise<GenerateImageResponse>;
+    // Add other model methods if used, e.g., countTokens, embedContent
   }
 
   export interface Chat {

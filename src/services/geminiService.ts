@@ -1,8 +1,7 @@
-
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { LLMResponse, PlayerColor, TerrainObject } from '../utils/types'; 
 
-let ai: GoogleGenAI | null = null;
+let ai: GoogleGenerativeAI | null = null;
 
 export function initializeGeminiClient(): void {
   // Safely access process.env.API_KEY
@@ -13,10 +12,10 @@ export function initializeGeminiClient(): void {
     throw new Error("API Key is missing. Cannot initialize Gemini client. Ensure API_KEY environment variable is set.");
   }
   try {
-    ai = new GoogleGenAI({ apiKey }); // Direct usage of apiKey string
+    ai = new GoogleGenerativeAI(apiKey); // Direct usage of apiKey string
     console.log("Gemini client successfully initialized in service.");
   } catch (error) {
-    console.error("Error initializing GoogleGenAI client in service:", error);
+    console.error("Error initializing GoogleGenerativeAI client in service:", error);
     ai = null; 
     if (error instanceof Error && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid"))) {
         throw new Error("The API Key provided via environment variable is not valid. Please check the API_KEY.");
@@ -219,16 +218,12 @@ export const processMove = async (
 
   try {
     console.log("Sending to Gemini - Current FEN:", currentFen, "Player Input:", playerInput, "Current Terrain:", currentTerrain, "Dimensions:", `${currentNumFiles}x${currentNumRanks}`, "History:", gameHistory);
-    const geminiApiResponse: GenerateContentResponse = await ai.models.generateContent({ 
-        model: 'gemini-2.5-flash-preview-04-17',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            temperature: 0.85 
-        },
-    });
-
-    apiResponseText = geminiApiResponse.text; 
+    
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    apiResponseText = response.text();
+    
     console.log("Raw Gemini API response text:", apiResponseText);
 
     let jsonStr = apiResponseText.trim();
