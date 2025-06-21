@@ -44,8 +44,15 @@ export const Square: React.FC<SquareProps> = ({ piece, terrain, isDark, dynamicD
   const showHp = piece && piece.maxHp > 0 && piece.currentHp < piece.maxHp;
   const hpPercentage = piece && piece.maxHp > 0 ? (piece.currentHp / piece.maxHp) * 100 : 0;
 
+  const squareStyle: React.CSSProperties = {
+    backgroundColor: isDark ? '#404040' : '#a3a3a3', // neutral-700 and neutral-400
+  };
+
   return (
-    <div className={`w-full h-full flex flex-col items-center justify-center transition-colors duration-150 relative select-none p-0.5 ${isDark ? 'bg-neutral-700' : 'bg-neutral-400'}`}>
+    <div 
+      className="w-full h-full flex flex-col items-center justify-center transition-colors duration-150 relative select-none p-0.5"
+      style={squareStyle}
+    >
       {/* HP Bar */}
       {showHp && (
         <div className="w-full h-1.5 mb-0.5 bg-neutral-500 rounded-full overflow-hidden"> {/* Darker Grayscale HP bar background */}
