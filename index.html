@@ -23,38 +23,10 @@
       color: #ffffff; /* white text */
     }
   </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.1.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-    "react/": "https://esm.sh/react@^19.1.0/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.5.1",
-    "chess.js": "https://esm.sh/chess.js@^1.0.0-beta.8",
-    "@/": "./"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
-  <!--
-    NOTE FOR GITHUB PAGES DEPLOYMENT:
-    Browsers cannot directly execute .tsx files. They must be compiled to JavaScript (.js) first.
-    GitHub Pages is a static file hosting service and does not perform this compilation automatically.
-    The "disallowed MIME type" errors occur because the server provides the .tsx file with a type
-    (e.g., "application/octet-stream" or "text/html") that the browser won't execute as a script.
-
-    To fix this and run the app on GitHub Pages:
-    1. Set up a build process in your project (e.g., using 'tsc', Vite, Parcel, or similar tools).
-    2. This build process will compile your .tsx and .ts files into .js files.
-    3. Update the script tag below to point to the main compiled .js file 
-       (e.g., <script type="module" src="./dist/index.js"></script> if output is in a 'dist' folder).
-    4. Deploy your index.html AND the compiled JavaScript files to GitHub Pages.
-  -->
-  <script type="module" src="./index.tsx"></script>
-<script type="module" src="/index.tsx"></script>
+  <script type="module" src="/src/index.tsx"></script>
 </body>
 </html>

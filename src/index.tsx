@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -13,7 +12,9 @@ if (!rootElement) {
 }
 
 try {
+  console.log('index.tsx: Creating React root...');
   const root = ReactDOM.createRoot(rootElement);
+  console.log('index.tsx: Rendering App component...');
   root.render(
     <React.StrictMode>
       <App />

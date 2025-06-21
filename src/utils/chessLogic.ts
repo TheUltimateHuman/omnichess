@@ -1,6 +1,5 @@
-
 import { BasicPieceBoardState, PlayerColor, ParsedFenData } from './types';
-import { INITIAL_FEN, PIECE_FROM_FEN_CHAR } from '../constants';
+import { INITIAL_FEN, PIECE_FROM_FEN_CHAR } from '../../constants';
 
 export const getInitialBoardFen = (): string => INITIAL_FEN;
 

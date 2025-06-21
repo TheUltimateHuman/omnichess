@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Board } from './components/Board';
 import { MoveInput } from './components/MoveInput';
@@ -6,7 +5,7 @@ import { GameMessages } from './components/GameMessages';
 import { processMove, initializeGeminiClient, isGeminiClientInitialized } from './services/geminiService';
 import { getInitialBoardFen, getOpponentColor, parseFenForBoardState, isStandardChessSetup } from './utils/chessLogic';
 import { PlayerColor, LLMResponse, TerrainObject, PieceBoardState, ParsedFenData, Piece } from './utils/types';
-import { DEFAULT_NEW_PIECE_MAX_HP, PIECE_FROM_FEN_CHAR } from './constants';
+import { DEFAULT_NEW_PIECE_MAX_HP, PIECE_FROM_FEN_CHAR } from '../constants';
 import { Chess, Move as ChessJSMove } from 'chess.js';
 
 interface DynamicPiecePrototype {

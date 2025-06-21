@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Piece, PlayerColor, TerrainObject } from '../utils/types'; 
-import { UNICODE_PIECES } from '../constants';
+import { UNICODE_PIECES } from '../../constants';
 
 interface SquareProps {
   piece: Piece | null; 
