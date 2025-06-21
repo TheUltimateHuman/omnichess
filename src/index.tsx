@@ -1,14 +1,13 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
 try {
   const rootElement = document.getElementById('root');
   if (!rootElement) {
     document.body.innerHTML = '<div style="color: red; padding: 20px; font-family: sans-serif;">Fatal Error: #root element not found.</div>';
     throw new Error("Could not find root element to mount to");
   }
-
-  // All imports are moved inside the try block
-  const React = (await import('react')).default;
-  const ReactDOM = (await import('react-dom/client')).default;
-  const App = (await import('./App')).default;
 
   console.log('index.tsx: Script running, attempting to render App.');
 
