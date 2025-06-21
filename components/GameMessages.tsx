@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
-import { PlayerColor } from '@/utils/types';
+import { PlayerColor } from '../utils/types';
 
 interface GameMessagesProps {
   messages: string[];

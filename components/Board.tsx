@@ -2,7 +2,7 @@
 import React from 'react';
 import { Square } from './Square';
 import { getAlgebraicNotation } from '../utils/chessLogic';
-import { PieceBoardState, TerrainObject } from '@/utils/types'; // Removed PlayerColor
+import { PieceBoardState, TerrainObject } from '../utils/types'; // Removed PlayerColor
 
 interface DynamicPiecePrototype {
   displayChar: string;

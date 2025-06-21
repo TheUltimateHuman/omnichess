@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { LLMResponse, PlayerColor, TerrainObject } from '@/utils/types'; 
+import { LLMResponse, PlayerColor, TerrainObject } from '../utils/types'; 
 
 let ai: GoogleGenAI | null = null;
 
