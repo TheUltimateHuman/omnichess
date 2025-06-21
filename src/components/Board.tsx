@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Square } from './Square';
 import { getAlgebraicNotation } from '../utils/chessLogic';
@@ -46,7 +45,7 @@ export const Board: React.FC<BoardProps> = ({
 
   return (
     <div 
-      className="border border-neutral-700 shadow-2xl bg-black rounded-md p-2 sm:p-3" 
+      className="border border-neutral-700 shadow-2xl rounded-md p-2 sm:p-3" 
       style={gridStyle}
     >
       {/* Top-left empty cell for alignment */}
