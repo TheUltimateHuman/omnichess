@@ -29,9 +29,10 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // API Key Management for GitHub Pages
-  const [apiKey, setApiKey] = useState<string>(process.env.API_KEY || '');
+  // Initialize apiKey to empty and showApiKeyInput to true, as process.env is not available in browser
+  const [apiKey, setApiKey] = useState<string>('');
   const [apiKeyInput, setApiKeyInput] = useState<string>('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(!process.env.API_KEY);
+  const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(true); // Always show if no key yet
   const [geminiReady, setGeminiReady] = useState<boolean>(false);
 
   const [dynamicPiecePrototypes, setDynamicPiecePrototypes] = useState<Record<string, DynamicPiecePrototype>>({});
@@ -41,22 +42,29 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
+    // Attempt to initialize Gemini client only if an API key is provided
     if (apiKey && !isGeminiClientInitialized()) {
       try {
         initializeGeminiClient(apiKey);
         setGeminiReady(true);
-        setShowApiKeyInput(false);
+        setShowApiKeyInput(false); // Hide input form once key is set and client initialized
         setError(null); 
         console.log("Gemini client initialized successfully.");
       } catch (e) {
         const errorMsg = e instanceof Error ? e.message : "Failed to initialize Gemini client.";
         setError(`API Key Error: ${errorMsg}. Please ensure your API key is valid.`);
         setGeminiReady(false);
+        setShowApiKeyInput(true); // Show input form again if initialization fails
         console.error("Failed to initialize Gemini client:", e);
       }
     } else if (isGeminiClientInitialized()) {
+        // If client is already initialized (e.g. from a previous successful attempt with a key)
         setGeminiReady(true);
         setShowApiKeyInput(false);
+    } else if (!apiKey) {
+        // If there's no API key, ensure the input form is shown
+        setShowApiKeyInput(true);
+        setGeminiReady(false);
     }
   }, [apiKey]);
 
