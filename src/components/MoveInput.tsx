@@ -29,12 +29,12 @@ export const MoveInput: React.FC<MoveInputProps> = ({ onMoveSubmit, isLoading })
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Type your move here..."
           disabled={isLoading}
-          className="p-4 bg-neutral-800 border border-neutral-600 text-lg text-neutral-100 rounded-md shadow-sm focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400 outline-none transition-all w-2/5"
+          className="p-5 bg-neutral-800 border border-neutral-600 text-xl text-neutral-100 rounded-md shadow-sm focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400 outline-none transition-all w-2/5"
         />
         <button
           type="submit"
           disabled={isLoading}
-          className="px-6 py-4 bg-neutral-200 hover:bg-neutral-300 text-black font-semibold text-lg rounded-md shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2 focus:ring-offset-black w-2/5"
+          className="px-6 py-5 bg-neutral-200 hover:bg-neutral-300 text-black font-semibold text-xl rounded-md shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2 focus:ring-offset-black w-2/5"
         >
           {isLoading ? 'Processing...' : 'Submit'}
         </button>
