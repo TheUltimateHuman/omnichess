@@ -1,0 +1,5 @@
+{
+  "name": "Omnichess",
+  "description": "A chess game where you play against Gemini. Type your move in natural language or algebraic notation, and Gemini will interpret it and make its counter-move. The LLM attempts to parse any input into actions on the game board.",
+  "requestFramePermissions": []
+}
