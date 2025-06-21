@@ -217,7 +217,7 @@ export const processMove = async (
     console.log("Sending to Gemini - Current FEN:", currentFen, "Player Input:", playerInput, "Current Terrain:", currentTerrain, "Dimensions:", `${currentNumFiles}x${currentNumRanks}`, "History:", gameHistory);
     
     const geminiApiResponse: GenerateContentResponse = await ai.models.generateContent({ 
-        model: 'gemini-pro',
+        model: 'gemini-2.5-flash-preview-04-17',
         contents: prompt,
     });
 
