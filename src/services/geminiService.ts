@@ -31,6 +31,10 @@ const analyzeChessPosition = (fen: string): string => {
     if (castling === '-') {
       analysis += " No castling rights remain.";
     }
+
+    if (enPassant !== '-') {
+      analysis += ` En passant is possible on ${enPassant}.`;
+    }
     
     return analysis;
   } catch (error) {
