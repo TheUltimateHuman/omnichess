@@ -499,7 +499,6 @@ const App: React.FC = () => {
 
       {/* Right Column: Move Input and Controls */}
       <div className="w-full md:w-1/3 space-y-4 mt-4 md:mt-0">
-        <h1 className="text-4xl font-bold text-center mb-4 text-neutral-100">OMNICHESS</h1>
         {error && <div className="p-3 bg-red-800 border border-red-600 text-white rounded-md my-4">{error}</div>}
         <MoveInput onMoveSubmit={handlePlayerMove} isLoading={isLoading} />
         {/* Game Controls can go here if needed */}

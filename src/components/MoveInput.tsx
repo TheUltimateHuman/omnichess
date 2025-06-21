@@ -34,7 +34,7 @@ export const MoveInput: React.FC<MoveInputProps> = ({ onMoveSubmit, isLoading })
         <button
           type="submit"
           disabled={isLoading}
-          className="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black font-semibold rounded-md shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2 focus:ring-offset-black w-1/6" // Contrasting button for dark theme
+          className="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black font-semibold rounded-md shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2 focus:ring-offset-black w-1/3" // Contrasting button for dark theme
         >
           {isLoading ? 'Processing...' : 'Submit'}
         </button>
