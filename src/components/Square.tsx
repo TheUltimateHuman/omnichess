@@ -10,8 +10,6 @@ interface SquareProps {
 }
 
 export const Square: React.FC<SquareProps> = ({ piece, terrain, isDark, dynamicDisplayChar }) => {
-  const bgColor = isDark ? 'bg-neutral-700' : 'bg-neutral-400'; // Dark gray and Light gray
-  
   let displaySymbol = '';
   let pieceColorClass = '';
   let pieceStyleOverride: React.CSSProperties = {};
@@ -47,7 +45,7 @@ export const Square: React.FC<SquareProps> = ({ piece, terrain, isDark, dynamicD
   const hpPercentage = piece && piece.maxHp > 0 ? (piece.currentHp / piece.maxHp) * 100 : 0;
 
   return (
-    <div className={`w-full h-full flex flex-col items-center justify-center ${bgColor} transition-colors duration-150 relative select-none p-0.5`}>
+    <div className={`w-full h-full flex flex-col items-center justify-center transition-colors duration-150 relative select-none p-0.5 ${isDark ? 'bg-neutral-700' : 'bg-neutral-400'}`}>
       {/* HP Bar */}
       {showHp && (
         <div className="w-full h-1.5 mb-0.5 bg-neutral-500 rounded-full overflow-hidden"> {/* Darker Grayscale HP bar background */}
