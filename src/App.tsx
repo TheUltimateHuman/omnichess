@@ -284,6 +284,36 @@ const App: React.FC = () => {
     }
   }, [canonicalNumFiles, canonicalNumRanks, addMessage]);
 
+  const handleLlmTurn = async (fenAfterPlayerMove: string, aiPromptInput: string) => {
+    setIsLoading(true);
+    try {
+      const response: LLMResponse = await processMove(
+        fenAfterPlayerMove, aiPromptInput, 'black', 'white',
+        boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM
+      );
+      addMessage(`Gemini (Black): ${response.gameMessage}`);
+      let finalFen = response.boardAfterOpponentMoveFen;
+      // Handle third-party teams
+      if (response.thirdPartyResponses && Array.isArray(response.thirdPartyResponses)) {
+        response.thirdPartyResponses.forEach((teamResp: ThirdPartyResponseData) => {
+          addMessage(`${teamResp.team}: ${teamResp.gameMessage}`);
+          finalFen = teamResp.boardAfterTeamMoveFen;
+          // Register new third-party teams if not already present
+          setThirdPartyTeams(prevTeams => {
+            if (!prevTeams.some(t => t.color === teamResp.team)) {
+              return [...prevTeams, { color: teamResp.team, displayName: teamResp.team.charAt(0).toUpperCase() + teamResp.team.slice(1) + ' Army', fenChar: teamResp.team[0], uiColor: '#FF00FF', isThirdParty: true }];
+            }
+            return prevTeams;
+          });
+        });
+      }
+      setBoardFen(finalFen);
+      setIsLoading(false);
+    } catch (e) {
+      setError('Error processing LLM turn: ' + (e instanceof Error ? e.message : String(e)));
+      setIsLoading(false);
+    }
+  };
 
   const handlePlayerMove = useCallback(async (inputText: string) => {
     if (!geminiReady || isGameOver) {
@@ -376,24 +406,9 @@ const App: React.FC = () => {
             
             const aiPromptInput = `It is your turn (${aiPlayerColor}). Choose one of the following legal standard chess moves for ${aiPlayerColor} from this list: ${JSON.stringify(legalAiMovesSan)}. Select a strong move. Your response must select one of these moves and provide the resulting FEN. Ensure your playerMoveAttempt.parsed accurately reflects your chosen move.`;
 
-            const response: LLMResponse = await processMove(
-                fenAfterPlayerStdMove, aiPromptInput, aiPlayerColor, humanPlayerActualColor,
-                boardTerrain, 8, 8, gameHistoryForLLM
-            );
-            llmResponseForSideEffects = response;
-            addMessage(`Gemini (${aiPlayerColor}): ${response.gameMessage}`);
-            
-            try { 
-                new Chess(response.boardAfterOpponentMoveFen); 
-                finalFenForTurn = response.boardAfterOpponentMoveFen;
-            } catch (e_fen_ai) {
-                const fenErrorMsg = e_fen_ai instanceof Error ? e_fen_ai.message : "Unknown FEN processing error for AI move.";
-                console.error("Error processing AI's FEN in standard move path:", fenErrorMsg, "AI FEN:", response.boardAfterOpponentMoveFen);
-                addMessage(`Error: AI returned an invalid board state (${fenErrorMsg}). Board is now after your move: ${playerStdMoveSan}`);
-                finalFenForTurn = fenAfterPlayerStdMove; 
-                llmResponseForSideEffects = null; 
-            }
-
+            await handleLlmTurn(fenAfterPlayerStdMove, aiPromptInput);
+            setIsLoading(false);
+            return;
         } else { 
             addMessage(`You (${humanPlayerActualColor}): ${inputText}`);
             currentTurnPlayerInputForHistory = inputText;
@@ -508,8 +523,6 @@ const App: React.FC = () => {
             boardTerrain={boardTerrain}
             numFiles={displayNumFiles}
             numRanks={displayNumRanks}
-            dynamicTeams={dynamicTeams}
-            teamOrder={teamOrder}
           />
         </div>
         <GameMessages messages={gameMessages} winner={winner} isGameOver={isGameOver}/>
