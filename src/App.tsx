@@ -5,7 +5,7 @@ import { GameMessages } from './components/GameMessages';
 import { processMove, initializeGeminiClient, isGeminiClientInitialized } from './services/geminiService';
 import { getInitialBoardFen, parseFenForBoardState, isStandardChessSetup } from './utils/chessLogic';
 import { TeamColor, LLMResponse, TerrainObject, PieceBoardState, ParsedFenData, Piece, TeamInfo } from './utils/types';
-import { DEFAULT_NEW_PIECE_MAX_HP, PIECE_FROM_FEN_CHAR, TEAM_INFOS } from '../constants';
+import { DEFAULT_NEW_PIECE_MAX_HP, PIECE_FROM_FEN_CHAR } from '../constants';
 import { Chess, Move as ChessJSMove } from 'chess.js';
 
 interface DynamicPiecePrototype {
@@ -35,9 +35,9 @@ const App: React.FC = () => {
   const [winner, setWinner] = useState<TeamColor | 'draw' | null>(null);
   const [gameHistoryForLLM, setGameHistoryForLLM] = useState<string[]>([]);
 
-  const [teamOrder, setTeamOrder] = useState<TeamColor[]>(['white', 'black']);
-  const [currentTeamIndex, setCurrentTeamIndex] = useState<number>(0);
-  const [dynamicTeams, setDynamicTeams] = useState<Record<TeamColor, TeamInfo>>({});
+  const [teamOrder] = useState<TeamColor[]>(['white', 'black']);
+  const [currentTeamIndex] = useState<number>(0);
+  const [dynamicTeams] = useState<Record<TeamColor, TeamInfo>>({});
 
   const addMessage = useCallback((message: string) => {
     setGameMessages(prev => [...prev.slice(-15), message]); 
@@ -408,6 +408,20 @@ const App: React.FC = () => {
             applyLlmResponseSideEffects(llmResponseForSideEffects, finalFenForTurn);
             const historyEntry = `Player (${humanPlayerActualColor}): ${currentTurnPlayerInputForHistory}\nGemini: ${llmResponseForSideEffects.gameMessage}`;
             setGameHistoryForLLM(prevHistory => [...prevHistory.slice(-4), historyEntry]); 
+
+            // Handle third-party teams
+            if (llmResponseForSideEffects.thirdPartyTeams && Array.isArray(llmResponseForSideEffects.thirdPartyTeams)) {
+              for (const teamTurn of llmResponseForSideEffects.thirdPartyTeams) {
+                addMessage(`Third Party (${teamTurn.teamColor}): ${teamTurn.teamMessage}`);
+                // Optionally, update the board FEN if the third party's move is the latest
+                setBoardFen(teamTurn.teamFen);
+                // Optionally, check for victory
+                if (teamTurn.teamMessage && teamTurn.teamMessage.toLowerCase().includes('win')) {
+                  setIsGameOver(true);
+                  setWinner(teamTurn.teamColor);
+                }
+              }
+            }
         }
 
     } catch (e: any) { 

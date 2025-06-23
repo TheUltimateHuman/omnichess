@@ -99,15 +99,18 @@ The input directive for ${playerRole}'s turn is: "${playerInput}"
 
 SPECIAL INSTRUCTION BLOCK FOR THIS TURN:
 
-THIRD-PARTY ARMIES (DYNAMIC TEAMS):
-- You may introduce new, independent armies (e.g., invading demons, robots, etc.) in response to player input or as a narrative development.
-- Each third-party army must be assigned a unique, fitting team color (not 'white' or 'black') and a display name (e.g., 'demon', 'robot', 'angel', etc.).
-- When a third-party army is introduced, define its pieces in 'newPieceDefinitions' with the correct 'team' field and a unique FEN character.
-- Third-party armies are full participants in the game: they can move, attack, defend, and win.
-- When it is Black's turn, you must process all third-party armies' turns immediately after Black's, in a fixed order (e.g., demon, then robot, etc.), and output their moves in a 'thirdPartyResponses' array in the JSON.
-- Each third-party army's response must include: 'teamColor', 'llmInterpretation', 'parsed', 'appliedEffects', and 'boardAfterMoveFen'.
-- If a third-party army wins, narrate and enforce this in the 'gameMessage' and update the board state accordingly.
-- The board FEN after all third-party moves should be the final state for the turn.
+THIRD-PARTY ARMIES & DYNAMIC TEAMS:
+- You may introduce new armies (e.g., invading demons, angels, robots, etc.) in response to player actions or narrative events.
+- Each third-party army must be assigned a unique team color (not 'white' or 'black'), such as 'demon', 'red', 'blue', etc. Use a fitting color for the theme.
+- Third-party teams operate as their own army in the chess game, with their own pieces, rules, and victory conditions.
+- After Black's turn, process the turn for each active third-party team (in any order you choose). Output their moves, FEN updates, and messages in the same response as Black's turn.
+- Third-party teams can win the game. If a third-party team achieves victory, declare them as the winner in the game message and update the FEN accordingly.
+- When introducing a new team, add their info to the newPieceDefinitions and use a unique FEN character for their pieces.
+- The JSON output must include a 'thirdPartyTeams' array, where each entry contains:
+  - 'teamColor': the color of the third-party team (e.g., 'demon')
+  - 'teamMove': a description of the team's move(s) for this turn
+  - 'teamFen': the FEN string after this team's move (active player should be the next team in turn order)
+  - 'teamMessage': a summary of the team's action and any narrative or victory declaration
 `;
 
   if (playerInput.startsWith(`It is your turn (${playerRole}). Choose one of the following legal standard chess moves`)) {
@@ -199,7 +202,6 @@ HEALTH POINTS (HP) & DESTRUCTION:
 - Do NOT invent new FEN characters or modifiers (e.g., 'P*') for damaged pieces. Standard FEN characters are used until destruction.
 
 FEN STRING RULES - VERY IMPORTANT - ADHERE STRICTLY:
-An invalid FEN string is the most critical error you can make, as it will crash the application. Pay extreme attention to these rules.
 1.  The piece placement part of the FEN string describes all ranks, separated by '/'.
 2.  DIMENSION CONSISTENCY (ABSOLUTELY CRITICAL): If your "llmInterpretation" or "appliedEffects" state that the board dimensions change (e.g., to N ranks and M files), then the piece placement part of your FEN strings ("boardAfterPlayerMoveFen" and "boardAfterOpponentMoveFen") MUST reflect these exact new dimensions.
         * It MUST contain exactly N rank strings (N segments separated by N-1 slashes).
@@ -218,7 +220,6 @@ An invalid FEN string is the most critical error you can make, as it will crash 
         - The new rank string should be '6nA' (6 empty squares a-f, 'n' on g6, 'A' on h6).
         - An INCORRECT new rank string would be '6n' (because the 'A' on h6 was forgotten).
     c. SANITY CHECK FINAL FEN: Before outputting the JSON, mentally re-parse your generated "boardAfterPlayerMoveFen" and "boardAfterOpponentMoveFen" rank by rank. For each rank, count the pieces and sum the numbers. Does it match the current/new number of files? If not, YOU MUST CORRECT IT. This is the most common source of errors.
-    d. DOUBLE-CHECK YOUR WORK: After generating a FEN, perform a final validation pass. Read your own FEN string back to yourself and verify every piece and number. This is your last chance to catch an error.
 7.  If a piece summons another, the summoning piece typically REMAINS on its square unless your narrative explicitly states it is consumed, transformed, or moves. Ensure FEN reflects this.
 8.  The FEN string you provide should ONLY reflect piece positions. Terrain is handled by "terrainChanges".
 9.  PIECE MOVEMENT: When a piece moves from one square to another (including for a capture), its FEN character MUST be removed from its original square and placed on the new square. The original square must then be accounted for as empty (usually by adjusting a number or replacing with '1' if it was adjacent to other pieces). A piece cannot exist in two places simultaneously.
@@ -235,10 +236,13 @@ CUSTOM PIECE MOVEMENT VALIDATION:
 FEN AUDIT & INTERNAL VALIDATION (MANDATORY):
 - You MUST include an array field "internalFenAudit" in your JSON output.
 - For every move, provide a step-by-step explanation in "internalFenAudit" of how you constructed the FEN(s), including:
-  1. A declaration of the final board dimensions (e.g., "Board is 8x8").
-  2. For EACH rank in the FEN, an explicit calculation proving it sums to the correct number of files. Example: "Rank 1 ('rnbqkbnr'): 8 pieces = 8 files. OK." or "Rank 2 ('pp1ppppp'): 2 pieces + 1 empty + 5 pieces = 8 files. OK.".
-  3. A summary of how player/opponent actions were translated into FEN changes.
-  4. For custom piece moves, confirm the move followed the defined movement pattern from "newPieceDefinitions".
+  1. How each rank string was built or modified, and how it matches the described actions.
+  2. How the number of ranks and files in the FEN matches the board's dimensions after any changes.
+  3. How each described action (e.g., adding/removing rows, moving pieces) is reflected in the FEN.
+  4. Any checks you performed to ensure the FEN is valid (e.g., each rank sums to the correct number of files, all pieces are accounted for, no extra or missing rows).
+  5. For custom piece moves, verify that the move follows the defined movement pattern from "newPieceDefinitions".
+  6. If any moves were adjusted due to movement rule violations, explain the adjustment in the audit.
+
 - This field is for internal validation and debugging ONLY. Do NOT reference or display the contents of "internalFenAudit" in any user-facing messages, game messages, or summaries.
 - You must always include this audit, even if the FEN did not change.
 
@@ -249,13 +253,11 @@ CHECKLIST (Confirm before outputting):
 - [ ] No pieces are omitted or duplicated.
 - [ ] The FEN matches the narrative and applied effects.
 - [ ] The audit is included in "internalFenAudit" and is not referenced in any user-facing field.
-- [ ] I have double-checked every number and piece in the FEN string to ensure its correctness.
 
 NEW PIECE DEFINITIONS:
-1.  Assign it a unique single FEN character (uppercase for White, lowercase for Black).
-2.  For each new piece type, you MUST provide its definition as an object within the "newPieceDefinitions" array. Each definition object requires: "fenChar" (string), "displayChar" (string), "description" (string), and optionally "maxHp" (number, defaults to 3 if omitted).
-3.  For the "displayChar", you MUST prioritize using a single, relevant emoji or symbol (e.g., 🐉 for a dragon, 🛡️ for a shield) over plain text characters. If no emoji is suitable, a single text character is acceptable.
-4.  IMPORTANT CONSISTENCY: Once a custom piece's "fenChar" (e.g., 'W') is defined with a "maxHp" and "displayChar", do NOT provide a "newPieceDefinition" for the *same* "fenChar" in subsequent turns to change these core attributes. Its initial "maxHp" and "displayChar" are fixed for that "fenChar". If a piece undergoes a fundamental change that alters these, it should conceptually become a *new* piece type with a *new, different* "fenChar" and its own definition. Narrate the transformation if needed.
+1. Assign it a unique single FEN character (uppercase for White, lowercase for Black).
+2. For each new piece type, you MUST provide its definition as an object within the "newPieceDefinitions" array. Each definition object requires: "fenChar" (string), "displayChar" (string), "description" (string), and optionally "maxHp" (number, defaults to 3 if omitted).
+3. IMPORTANT CONSISTENCY: Once a custom piece's "fenChar" (e.g., 'W') is defined with a "maxHp" and "displayChar", do NOT provide a "newPieceDefinition" for the *same* "fenChar" in subsequent turns to change these core attributes. Its initial "maxHp" and "displayChar" are fixed for that "fenChar". If a piece undergoes a fundamental change that alters these, it should conceptually become a *new* piece type with a *new, different* "fenChar" and its own definition. Narrate the transformation if needed.
 
 CUSTOM PIECE MOVEMENT RULES:
 1. When defining a new piece, you MUST specify its movement pattern in the "description" field. This should clearly describe how the piece can move (e.g., "moves like a knight but can also move one square in any direction", "moves like a queen but cannot move diagonally", "moves like a pawn but can move backwards").
@@ -290,17 +292,16 @@ You must return a single JSON object structured as follows:
     "appliedEffects": [/* optional details of changes */]
   },
   "boardAfterOpponentMoveFen": "FEN_string",
-  "thirdPartyResponses": [
+  "thirdPartyTeams": [
     {
-      "teamColor": "demon", // or other unique team name
-      "llmInterpretation": "...",
-      "parsed": { "from": "sq", "to": "sq", "pieceSymbol": "d", "color": "demon" } | null,
-      "appliedEffects": [/* optional details of changes */],
-      "boardAfterMoveFen": "FEN_string_after_this_army"
+      "teamColor": "demon",
+      "teamMove": "Demon King advances to e4 and summons imps.",
+      "teamFen": "FEN_after_demon_move",
+      "teamMessage": "The Demon Army storms the board!"
     }
-    // ...more armies as needed
+    // ... more teams as needed
   ],
-  "gameMessage": "Descriptive summary of the turn, including any third-party actions or victories.",
+  "gameMessage": "Descriptive summary of the turn.",
   "internalFenAudit": ["step-by-step audit here"]
 }
 

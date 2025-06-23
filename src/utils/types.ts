@@ -79,6 +79,13 @@ export interface TerrainChangeDefinition {
   action: 'add' | 'remove' | 'create'; // Added 'create'
 }
 
+export interface ThirdPartyTeamTurn {
+  teamColor: TeamColor;
+  teamMove: string;
+  teamFen: string;
+  teamMessage: string;
+}
+
 export interface LLMResponse {
   playerMoveAttempt: LLMPlayerMoveAttempt;
   boardAfterPlayerMoveFen: string; 
@@ -87,6 +94,7 @@ export interface LLMResponse {
   gameMessage: string;
   newPieceDefinitions?: NewPieceDefinition[];
   terrainChanges?: TerrainChangeDefinition[];
+  thirdPartyTeams?: ThirdPartyTeamTurn[];
 }
 
 export interface TeamInfo {
