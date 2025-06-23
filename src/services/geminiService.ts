@@ -76,8 +76,13 @@ const generatePrompt = (
   currentTerrain: Record<string, TerrainObject | null>,
   currentNumFiles: number,
   currentNumRanks: number,
-  gameHistory: string[]
+  gameHistory: string[],
+  errorContext: string = ''
 ): string => {
+  let systemInstructions = '';
+  if (errorContext) {
+    systemInstructions += `ERROR: Your last response did not pass FEN validation. ${errorContext} Please try again and ensure your FEN matches your described actions.\n\n`;
+  }
   const playerRole = playerColor;
   const opponentRole = opponentColor;
   const terrainContextString = currentTerrain ? JSON.stringify(currentTerrain) : '{}';
@@ -86,12 +91,18 @@ const generatePrompt = (
     : "\n\nNo prior game history for this session yet.";
   const positionAnalysis = analyzeChessPosition(currentFen);
 
-  let systemInstructions = `
+  systemInstructions += `
 You are a chess game engine. Interpret the player and AI directives, update the board, and narrate the turn. Output a valid FEN and JSON as described below.
 
 - Output only a single JSON object, no markdown or extra text.
 - The FEN must always match the described board state and actions. If the board is destroyed or the game ends, output an empty FEN.
 - Do not include any audit, checklist, or validation in your output.
+
+INTERNAL ACTION LOG (REQUIRED):
+- For every move, output an array field internalActionLog. Each entry must be a structured object describing a single board change (e.g., { action: 'move'|'summon'|'remove'|'promote'|'resize'|'terrain', piece: 'symbol', color: 'team', from: 'square', to: 'square', reason: 'string', ... }).
+- This log must include every change you made to the board, including all piece moves, additions, removals, promotions, board resizing, and terrain changes.
+- The internalActionLog is for internal validation only and will not be shown to the user.
+- The audit system will use this log as ground truth to validate that the FEN matches the described actions. If you omit an action, it will be treated as a FEN error.
 
 BOARD DIMENSIONS: ${currentNumFiles} files (columns) x ${currentNumRanks} ranks (rows)
 TERRAIN: ${terrainContextString}
@@ -322,7 +333,8 @@ export const processMove = async (
   currentNumFiles: number,
   currentNumRanks: number,
   gameHistory: string[],
-  _retryCount: number = 0
+  _retryCount: number = 0,
+  errorContext: string = ''
 ): Promise<LLMResponse> => {
   if (!isGeminiClientInitialized()) {
     try {
@@ -338,7 +350,7 @@ export const processMove = async (
     throw new Error("Gemini client is not available. Please ensure API_KEY environment variable is set and client is initialized.");
   }
 
-  let prompt = generatePrompt(currentFen, playerInput, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory);
+  let prompt = generatePrompt(currentFen, playerInput, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory, errorContext);
   let apiResponseText: string = '';
 
   try {
@@ -370,9 +382,8 @@ export const processMove = async (
     );
     if (!auditPlayer.isValid || !auditOpponent.isValid) {
       if (_retryCount < 2) {
-        console.warn('FEN audit failed, retrying LLM with minimal error prompt. Retries:', _retryCount + 1);
-        const errorPrompt = `Error: The FEN does not match the described move. Please try again and ensure the FEN matches your description and actions. Only output a single JSON object, no markdown.`;
-        return await processMove(currentFen, errorPrompt, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory, _retryCount + 1);
+        const auditMsg = `Player audit: ${auditPlayer.mismatches.join('; ')} | Opponent audit: ${auditOpponent.mismatches.join('; ')}`;
+        return await processMove(currentFen, playerInput, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory, _retryCount + 1, auditMsg);
       } else {
         throw new Error(`FEN audit failed after 2 retries. Player audit: ${auditPlayer.mismatches.join('; ')} | Opponent audit: ${auditOpponent.mismatches.join('; ')}`);
       }

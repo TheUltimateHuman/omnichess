@@ -93,6 +93,16 @@ export interface ThirdPartyResponseData {
   gameMessage: string;
 }
 
+export type InternalAction = {
+  action: 'move' | 'summon' | 'remove' | 'promote' | 'resize' | 'terrain' | string;
+  piece?: string;
+  color?: TeamColor;
+  from?: string;
+  to?: string;
+  reason?: string;
+  [key: string]: any;
+};
+
 export interface LLMResponse {
   playerMoveAttempt: LLMPlayerMoveAttempt;
   boardAfterPlayerMoveFen: string; 
@@ -102,6 +112,7 @@ export interface LLMResponse {
   newPieceDefinitions?: NewPieceDefinition[];
   terrainChanges?: TerrainChangeDefinition[];
   thirdPartyResponses?: ThirdPartyResponseData[];
+  internalActionLog?: InternalAction[];
 }
 
 export interface TeamInfo {
