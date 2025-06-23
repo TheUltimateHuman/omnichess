@@ -1,13 +1,8 @@
-export enum PlayerColor {
-  WHITE = 'white',
-  BLACK = 'black',
-  RED = 'red', // Third-party/Red team
-  BLUE = 'blue', // Fourth-party/Blue team
-}
+export type TeamColor = string; // e.g., 'white', 'black', 'demon', 'red', etc.
 
 export interface BasicPiece { // Piece info directly from FEN parsing, without HP
   symbol: string; 
-  color: PlayerColor;
+  color: TeamColor;
 }
 
 export interface Piece extends BasicPiece { // Full piece info including HP
@@ -25,7 +20,7 @@ export type PieceBoardState = SquarePieceState[][];
 
 export interface ParsedFenData {
   board: BasicPieceBoardState;
-  activePlayer: PlayerColor;
+  activePlayer: TeamColor;
   numFiles: number;
   numRanks: number;
   // Could include castling, en passant etc. if needed later
@@ -35,7 +30,7 @@ export interface ParsedMove {
   from: string | null; 
   to: string;   
   pieceSymbol: string; 
-  color: PlayerColor; 
+  color: TeamColor; 
   newType?: string; 
 }
 
@@ -53,7 +48,7 @@ export interface OpponentParsedMove {
   from?: string | null; // From can be null for piece creation by opponent
   to?: string | null;   // To can be null if a piece is just removed/affected
   pieceSymbol?: string; 
-  color?: PlayerColor; 
+  color?: TeamColor; 
 }
 
 export interface OpponentResponseData {
@@ -67,6 +62,7 @@ export interface NewPieceDefinition {
   displayChar: string;  
   description?: string; 
   maxHp?: number;       
+  team?: TeamColor;     // Add team for new piece definitions
 }
 
 export interface TerrainObject {
@@ -91,4 +87,11 @@ export interface LLMResponse {
   gameMessage: string;
   newPieceDefinitions?: NewPieceDefinition[];
   terrainChanges?: TerrainChangeDefinition[];
+}
+
+export interface TeamInfo {
+  color: TeamColor; // e.g., 'white', 'black', 'demon', etc.
+  displayName: string; // e.g., 'White', 'Black', 'Demon Army'
+  fenChar: string; // e.g., 'w', 'b', 'd', etc.
+  uiColor: string; // e.g., '#FFFFFF', '#000000', '#FF0000', etc.
 }

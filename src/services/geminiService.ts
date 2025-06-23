@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { LLMResponse, PlayerColor, TerrainObject } from '../utils/types';
+import { LLMResponse, TeamColor, TerrainObject } from '../utils/types';
 
 let ai: GoogleGenAI | null = null;
 
@@ -70,8 +70,8 @@ export function isGeminiClientInitialized(): boolean {
 const generatePrompt = (
   currentFen: string,
   playerInput: string,
-  playerColor: PlayerColor,
-  opponentColor: PlayerColor,
+  playerColor: TeamColor,
+  opponentColor: TeamColor,
   currentTerrain: Record<string, TerrainObject | null>,
   currentNumFiles: number,
   currentNumRanks: number,
@@ -295,6 +295,17 @@ For "boardAfterOpponentMoveFen", the active player should be ${playerRole}.
 (If it's the "standard chess move" path for ${playerRole} where you chose from a list, "boardAfterOpponentMoveFen" is identical to "boardAfterPlayerMoveFen", so active player remains ${opponentRole}).
 
 Respond ONLY with the JSON object. Do not use markdown like \`\`\`json.
+
+THIRD-PARTY ARMIES & DYNAMIC TEAMS:
+- You may introduce new armies (e.g., invading demons) as their own team, with a unique color (not 'white' or 'black').
+- Assign each new team a unique color string and FEN character (e.g., 'demon', 'red', 'blue', 'd', 'r', etc.).
+- When a third-party team is present, process their turn after Black's turn (or in a new phase), and output their move alongside Black's.
+- Third-party teams can win the game. If a third-party team wins, narrate their victory and set the FEN/game state accordingly.
+- The turn order is: White → Black → [third-party teams in order of introduction] → White ...
+- The FEN active color must match the current team to move (use their FEN char).
+- For each team, provide their move and update the board state as needed.
+- When introducing a new team, add their info to the newPieceDefinitions/team info array.
+- When a team is eliminated, remove them from the turn order.
 `;
   return systemInstructions;
 };
@@ -302,8 +313,8 @@ Respond ONLY with the JSON object. Do not use markdown like \`\`\`json.
 export const processMove = async (
   currentFen: string,
   playerInput: string,
-  playerColor: PlayerColor,
-  opponentColor: PlayerColor,
+  playerColor: TeamColor,
+  opponentColor: TeamColor,
   currentTerrain: Record<string, TerrainObject | null>,
   currentNumFiles: number,
   currentNumRanks: number,

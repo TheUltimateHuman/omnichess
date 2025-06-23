@@ -3,19 +3,15 @@ import { Board } from './components/Board';
 import { MoveInput } from './components/MoveInput';
 import { GameMessages } from './components/GameMessages';
 import { processMove, initializeGeminiClient, isGeminiClientInitialized } from './services/geminiService';
-import { getInitialBoardFen, getOpponentColor, parseFenForBoardState, isStandardChessSetup } from './utils/chessLogic';
-import { PlayerColor, LLMResponse, TerrainObject, PieceBoardState, ParsedFenData, Piece } from './utils/types';
-import { DEFAULT_NEW_PIECE_MAX_HP, PIECE_FROM_FEN_CHAR } from '../constants';
+import { getInitialBoardFen, parseFenForBoardState, isStandardChessSetup } from './utils/chessLogic';
+import { TeamColor, LLMResponse, TerrainObject, PieceBoardState, ParsedFenData, Piece, TeamInfo } from './utils/types';
+import { DEFAULT_NEW_PIECE_MAX_HP, PIECE_FROM_FEN_CHAR, TEAM_INFOS } from '../constants';
 import { Chess, Move as ChessJSMove } from 'chess.js';
 
 interface DynamicPiecePrototype {
   displayChar: string;
   maxHp: number;
 }
-
-const getNextPlayerColor = (current: PlayerColor): PlayerColor => {
-  return current === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE;
-};
 
 const App: React.FC = () => {
   console.log('App.tsx: Component function body executing.');
@@ -27,7 +23,7 @@ const App: React.FC = () => {
   const [canonicalNumRanks, setCanonicalNumRanks] = useState<number>(8);
   
   const [boardTerrain, setBoardTerrain] = useState<Record<string, TerrainObject | null>>({});
-  const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>(PlayerColor.WHITE);
+  const [currentTeam, setCurrentTeam] = useState<TeamColor>('white');
   const [gameMessages, setGameMessages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +32,12 @@ const App: React.FC = () => {
 
   const [dynamicPiecePrototypes, setDynamicPiecePrototypes] = useState<Record<string, DynamicPiecePrototype>>({});
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
-  const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
+  const [winner, setWinner] = useState<TeamColor | 'draw' | null>(null);
   const [gameHistoryForLLM, setGameHistoryForLLM] = useState<string[]>([]);
+
+  const [teamOrder, setTeamOrder] = useState<TeamColor[]>(['white', 'black']);
+  const [currentTeamIndex, setCurrentTeamIndex] = useState<number>(0);
+  const [dynamicTeams, setDynamicTeams] = useState<Record<TeamColor, TeamInfo>>({});
 
   const addMessage = useCallback((message: string) => {
     setGameMessages(prev => [...prev.slice(-15), message]); 
@@ -74,7 +74,7 @@ const App: React.FC = () => {
       
       setCanonicalNumFiles(parsedFenData.numFiles);
       setCanonicalNumRanks(parsedFenData.numRanks);
-      setCurrentPlayer(parsedFenData.activePlayer);
+      setCurrentTeam(parsedFenData.activePlayer);
 
       const newPieceBoardState: PieceBoardState = parsedFenData.board.map(row =>
         row.map(squarePiece => {
@@ -127,17 +127,17 @@ const App: React.FC = () => {
 
     let gameActuallyOver = false;
     let gameOverMessage = "";
-    let determinedWinner: PlayerColor | 'draw' | null = null;
+    let determinedWinner: TeamColor | 'draw' | null = null;
 
     const standardSetup = isStandardChessSetup(boardFen, canonicalNumFiles, canonicalNumRanks);
 
     if (standardSetup) {
         try {
             const game = new Chess(boardFen);
-            const nextTurnPlayerColor = game.turn() === 'w' ? PlayerColor.WHITE : PlayerColor.BLACK;
+            const nextTurnPlayerColor = game.turn() === 'w' ? 'white' : 'black';
 
             if (game.isCheckmate()) {
-                determinedWinner = getOpponentColor(nextTurnPlayerColor);
+                determinedWinner = nextTurnPlayerColor === 'white' ? 'black' : 'white';
                 gameOverMessage = `Checkmate! ${determinedWinner.charAt(0).toUpperCase() + determinedWinner.slice(1)} wins.`;
                 gameActuallyOver = true;
             } else if (game.isStalemate()) {
@@ -157,10 +157,10 @@ const App: React.FC = () => {
         if (lastMessage) {
             const lowerLastMessage = lastMessage.toLowerCase();
             if (lowerLastMessage.includes("checkmate") || lowerLastMessage.includes("king captured")) {
-                 if (lowerLastMessage.includes("white wins")) determinedWinner = PlayerColor.WHITE;
-                 else if (lowerLastMessage.includes("black wins")) determinedWinner = PlayerColor.BLACK;
+                 if (lowerLastMessage.includes("white wins")) determinedWinner = 'white';
+                 else if (lowerLastMessage.includes("black wins")) determinedWinner = 'black';
                  else { 
-                    const lastPlayer = currentPlayer === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE; 
+                    const lastPlayer = currentTeam === 'white' ? 'black' : 'white'; 
                     if (lowerLastMessage.includes(lastPlayer)) determinedWinner = lastPlayer;
                  }
                  gameOverMessage = lastMessage; 
@@ -172,8 +172,8 @@ const App: React.FC = () => {
             } else if (lowerLastMessage.includes("game over")) {
                 gameOverMessage = lastMessage;
                 gameActuallyOver = true;
-                if (lowerLastMessage.includes("white wins")) determinedWinner = PlayerColor.WHITE;
-                else if (lowerLastMessage.includes("black wins")) determinedWinner = PlayerColor.BLACK;
+                if (lowerLastMessage.includes("white wins")) determinedWinner = 'white';
+                else if (lowerLastMessage.includes("black wins")) determinedWinner = 'black';
                 else if (lowerLastMessage.includes("draw")) determinedWinner = 'draw';
             }
         }
@@ -186,7 +186,7 @@ const App: React.FC = () => {
           setIsGameOver(true);
         }
     }
-  }, [boardFen, currentPlayer, addMessage, isGameOver, geminiReady, gameMessages, canonicalNumFiles, canonicalNumRanks]);
+  }, [boardFen, currentTeam, addMessage, isGameOver, geminiReady, gameMessages, canonicalNumFiles, canonicalNumRanks]);
 
 
   const applyLlmResponseSideEffects = useCallback((
@@ -274,18 +274,21 @@ const App: React.FC = () => {
 
 
   const handlePlayerMove = useCallback(async (inputText: string) => {
-    if (!geminiReady || isGameOver || currentPlayer !== PlayerColor.WHITE) {
-      if (!geminiReady) {
-        addMessage("Error: Gemini client not ready. Cannot process move. Check console for API Key errors.");
-      }
-      return;
+    if (!geminiReady || isGameOver) {
+        if (!geminiReady) {
+            addMessage("Error: Gemini client not ready. Cannot process move. Check console for API Key errors.");
+        }
+        return;
     }
+
     setIsLoading(true);
-    setError(null);
+    setError(null); // Clear previous move/processing errors
+
     let isStandardMovePath = false;
     let fenAfterPlayerStdMove: string | null = null;
     let playerStdMoveSan: string | null = null;
-    let humanPlayerActualColor = PlayerColor.WHITE;
+    let humanPlayerActualColor = currentTeam; 
+
     const standardSetup = isStandardChessSetup(boardFen, canonicalNumFiles, canonicalNumRanks);
 
     if (standardSetup) {
@@ -349,7 +352,7 @@ const App: React.FC = () => {
                 setIsLoading(false); return; 
             }
 
-            const aiPlayerColor = PlayerColor.BLACK;
+            const aiPlayerColor = teamOrder[1 - currentTeamIndex];
             
             const gameForAiTurn = new Chess(fenAfterPlayerStdMove);
             const legalAiMovesSan = gameForAiTurn.moves();
@@ -382,7 +385,7 @@ const App: React.FC = () => {
         } else { 
             addMessage(`You (${humanPlayerActualColor}): ${inputText}`);
             currentTurnPlayerInputForHistory = inputText;
-            const opponentColor = PlayerColor.BLACK;
+            const opponentColor = teamOrder[1 - currentTeamIndex];
             console.log(`Current FEN before player '${humanPlayerActualColor}' input ('${inputText}'): ${boardFen}`);
             
             const response: LLMResponse = await processMove(
@@ -420,43 +423,8 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-    setCurrentPlayer(PlayerColor.BLACK);
-  }, [boardFen, currentPlayer, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM]); 
+  }, [boardFen, currentTeam, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM, teamOrder, currentTeamIndex]); 
 
-  useEffect(() => {
-    if (currentPlayer !== PlayerColor.BLACK || isGameOver || !geminiReady) return;
-    (async () => {
-      setIsLoading(true);
-      // Prompt the LLM to process only Black's move
-      const blackPrompt = `It is your turn (Black). Make a standard chess move for Black. If you wish to summon or activate Red or Blue pieces as a special action, you may do so, but only if the game context or player input allows it.`;
-      try {
-        const response: LLMResponse = await processMove(
-          boardFen,
-          blackPrompt,
-          PlayerColor.BLACK,
-          PlayerColor.WHITE,
-          boardTerrain,
-          canonicalNumFiles,
-          canonicalNumRanks,
-          gameHistoryForLLM
-        );
-        setBoardFen(response.boardAfterOpponentMoveFen);
-        applyLlmResponseSideEffects(response, response.boardAfterOpponentMoveFen);
-        addMessage(`Gemini: ${response.gameMessage}`);
-        // Check for win state in the LLM's game message
-        if (/win/i.test(response.gameMessage)) {
-          setWinner(null); // We'll display the LLM's message directly
-          setIsGameOver(true);
-        } else {
-          setCurrentPlayer(PlayerColor.WHITE);
-        }
-      } catch (e) {
-        setError('Error processing Black turn: ' + (e instanceof Error ? e.message : String(e)));
-      } finally {
-        setIsLoading(false);
-      }
-    })();
-  }, [currentPlayer, isGameOver, geminiReady, boardFen, boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM, applyLlmResponseSideEffects, addMessage]);
 
   let displayNumFiles = canonicalNumFiles;
   let displayNumRanks = canonicalNumRanks;
@@ -528,6 +496,8 @@ const App: React.FC = () => {
             boardTerrain={boardTerrain}
             numFiles={displayNumFiles}
             numRanks={displayNumRanks}
+            dynamicTeams={dynamicTeams}
+            teamOrder={teamOrder}
           />
         </div>
         <GameMessages messages={gameMessages} winner={winner} isGameOver={isGameOver}/>
@@ -536,9 +506,7 @@ const App: React.FC = () => {
       {/* Right Column: Move Input and Controls */}
       <div className="w-full md:w-1/3 space-y-4 mt-4 md:mt-0">
         {error && <div className="p-3 bg-red-800 border border-red-600 text-white rounded-md my-4">{error}</div>}
-        {currentPlayer === PlayerColor.WHITE && (
-          <MoveInput onMoveSubmit={handlePlayerMove} isLoading={isLoading} />
-        )}
+        <MoveInput onMoveSubmit={handlePlayerMove} isLoading={isLoading} />
         {/* Game Controls can go here if needed */}
       </div>
     </div>

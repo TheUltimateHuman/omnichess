@@ -1,4 +1,4 @@
-import { BasicPieceBoardState, PlayerColor, ParsedFenData } from './types';
+import { BasicPieceBoardState, TeamColor, ParsedFenData } from './types';
 import { INITIAL_FEN, PIECE_FROM_FEN_CHAR } from '../../constants';
 
 export const getInitialBoardFen = (): string => INITIAL_FEN;
@@ -42,12 +42,7 @@ export const parseFenForBoardState = (fen: string): ParsedFenData => {
           board[r][fileIndex] = { symbol: pieceDetails.symbol, color: pieceDetails.color };
         } else {
           // This allows dynamic pieces not in PIECE_FROM_FEN_CHAR to be parsed initially
-          let color: PlayerColor;
-          if (char === 'A') color = PlayerColor.RED;
-          else if (char === 'S') color = PlayerColor.BLUE;
-          else if (char === char.toUpperCase()) color = PlayerColor.WHITE;
-          else if (char === char.toLowerCase()) color = PlayerColor.BLACK;
-          else color = PlayerColor.WHITE;
+          const color = (char === char.toUpperCase()) ? 'white' : 'black';
           board[r][fileIndex] = { symbol: char, color: color };
         }
         fileIndex++;
@@ -66,23 +61,20 @@ export const parseFenForBoardState = (fen: string): ParsedFenData => {
   return { board, activePlayer, numFiles, numRanks };
 };
 
-const getPlayerColorFromFenPart = (activeColorPart: string): PlayerColor => {
-  if (activeColorPart === 'w') return PlayerColor.WHITE;
-  if (activeColorPart === 'b') return PlayerColor.BLACK;
-  if (activeColorPart === 'r') return PlayerColor.RED;
-  if (activeColorPart === 'u') return PlayerColor.BLUE;
-  throw new Error("Invalid FEN: Active color is not 'w', 'b', 'r', or 'u'.");
+const getPlayerColorFromFenPart = (activeColorPart: string): TeamColor => {
+  return activeColorPart;
 };
 
-export const getPlayerColorFromFen = (fen: string): PlayerColor => {
+export const getPlayerColorFromFen = (fen: string): TeamColor => {
   const fenParts = fen.split(' ');
   if (fenParts.length < 2) throw new Error("Invalid FEN: Missing active color part.");
-  return getPlayerColorFromFenPart(fenParts[1].toLowerCase());
+  return getPlayerColorFromFenPart(fenParts[1]);
 };
 
-
-export const getOpponentColor = (playerColor: PlayerColor): PlayerColor => {
-  return playerColor === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE;
+export const getNextTeamInOrder = (currentTeam: TeamColor, teamOrder: TeamColor[]): TeamColor => {
+  const idx = teamOrder.indexOf(currentTeam);
+  if (idx === -1) throw new Error(`Current team '${currentTeam}' not found in team order: ${teamOrder}`);
+  return teamOrder[(idx + 1) % teamOrder.length];
 };
 
 export const getSquareCoordinates = (algebraic: string, numRanks: number): { row: number, col: number } | null => {
