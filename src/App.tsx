@@ -4,7 +4,7 @@ import { MoveInput } from './components/MoveInput';
 import { GameMessages } from './components/GameMessages';
 import { processMove, initializeGeminiClient, isGeminiClientInitialized } from './services/geminiService';
 import { getInitialBoardFen, parseFenForBoardState, isStandardChessSetup } from './utils/chessLogic';
-import { TeamColor, LLMResponse, TerrainObject, PieceBoardState, ParsedFenData, Piece, TeamInfo, ThirdPartyTeamInfo, ThirdPartyResponseData } from './utils/types';
+import { TeamColor, LLMResponse, TerrainObject, PieceBoardState, ParsedFenData, Piece, ThirdPartyTeamInfo, ThirdPartyResponseData } from './utils/types';
 import { DEFAULT_NEW_PIECE_MAX_HP, PIECE_FROM_FEN_CHAR } from '../constants';
 import { Chess, Move as ChessJSMove } from 'chess.js';
 
