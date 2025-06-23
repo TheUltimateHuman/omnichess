@@ -45,37 +45,6 @@ const App: React.FC = () => {
     setGameMessages(prev => [...prev.slice(-15), message]); 
   }, []);
 
-  const handleLlmTurn = async (fenAfterPlayerMove: string, aiPromptInput: string) => {
-    setIsLoading(true);
-    try {
-      const response: LLMResponse = await processMove(
-        fenAfterPlayerMove, aiPromptInput, 'black', 'white',
-        boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM
-      );
-      addMessage(`Gemini (Black): ${response.gameMessage}`);
-      let finalFen = response.boardAfterOpponentMoveFen;
-      // Handle third-party teams
-      if (response.thirdPartyResponses && Array.isArray(response.thirdPartyResponses)) {
-        response.thirdPartyResponses.forEach((teamResp: ThirdPartyResponseData) => {
-          addMessage(`${teamResp.team}: ${teamResp.gameMessage}`);
-          finalFen = teamResp.boardAfterTeamMoveFen;
-          // Register new third-party teams if not already present
-          setThirdPartyTeams(prevTeams => {
-            if (!prevTeams.some(t => t.color === teamResp.team)) {
-              return [...prevTeams, { color: teamResp.team, displayName: teamResp.team.charAt(0).toUpperCase() + teamResp.team.slice(1) + ' Army', fenChar: teamResp.team[0], uiColor: '#FF00FF', isThirdParty: true }];
-            }
-            return prevTeams;
-          });
-        });
-      }
-      setBoardFen(finalFen);
-      setIsLoading(false);
-    } catch (e) {
-      setError('Error processing LLM turn: ' + (e instanceof Error ? e.message : String(e)));
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
     console.log("App.tsx: Initial Gemini client initialization useEffect running.");
     if (!isGeminiClientInitialized()) {

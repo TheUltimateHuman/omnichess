@@ -1,7 +1,7 @@
 import React from 'react';
 import { Square } from './Square';
 import { getAlgebraicNotation } from '../utils/chessLogic';
-import { TeamColor, PieceBoardState, TerrainObject, TeamInfo } from '../utils/types';
+import { PieceBoardState, TerrainObject } from '../utils/types';
 
 interface DynamicPiecePrototype {
   displayChar: string;
@@ -14,8 +14,6 @@ interface BoardProps {
   boardTerrain: Record<string, TerrainObject | null>;
   numFiles: number;
   numRanks: number;
-  dynamicTeams: Record<string, TeamInfo>;
-  teamOrder: string[];
 }
 
 export const Board: React.FC<BoardProps> = ({ 
@@ -24,8 +22,6 @@ export const Board: React.FC<BoardProps> = ({
   boardTerrain,
   numFiles,
   numRanks,
-  dynamicTeams,
-  teamOrder
 }) => {
   const fileLabels = Array.from({ length: numFiles }, (_, i) => String.fromCharCode('a'.charCodeAt(0) + i));
   const rankLabels = Array.from({ length: numRanks }, (_, i) => (numRanks - i).toString());
