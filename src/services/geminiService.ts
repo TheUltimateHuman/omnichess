@@ -1,6 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { LLMResponse, TeamColor, TerrainObject } from '../utils/types';
-import { auditFenTransition } from '../utils/chessLogic';
 
 let ai: GoogleGenAI | null = null;
 
@@ -403,29 +402,6 @@ export const processMove = async (
     }
     if (parsedData.terrainChanges && parsedData.terrainChanges.length > 0) {
       console.log("Terrain changes from LLM:", parsedData.terrainChanges);
-    }
-
-    // Strict FEN audit: player move
-    const auditPlayer = auditFenTransition(
-      currentFen,
-      parsedData.boardAfterPlayerMoveFen,
-      parsedData.playerMoveAttempt.llmInterpretation + ' ' + (parsedData.playerMoveAttempt.appliedEffects ? JSON.stringify(parsedData.playerMoveAttempt.appliedEffects) : '')
-    );
-    if (!auditPlayer.isValid) {
-      console.error('FEN audit failed for player move:', auditPlayer);
-      // Optionally: throw or reject the move, or attach audit info to the response
-      parsedData.gameMessage += `\n[INTERNAL AUDIT: Player move FEN mismatch: ${auditPlayer.mismatches.join('; ')}]`;
-    }
-
-    // Strict FEN audit: opponent move
-    const auditOpponent = auditFenTransition(
-      parsedData.boardAfterPlayerMoveFen,
-      parsedData.boardAfterOpponentMoveFen,
-      parsedData.opponentResponse.llmInterpretation + ' ' + (parsedData.opponentResponse.appliedEffects ? JSON.stringify(parsedData.opponentResponse.appliedEffects) : '')
-    );
-    if (!auditOpponent.isValid) {
-      console.error('FEN audit failed for opponent move:', auditOpponent);
-      parsedData.gameMessage += `\n[INTERNAL AUDIT: Opponent move FEN mismatch: ${auditOpponent.mismatches.join('; ')}]`;
     }
 
     return parsedData;
