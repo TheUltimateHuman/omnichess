@@ -76,13 +76,8 @@ const generatePrompt = (
   currentTerrain: Record<string, TerrainObject | null>,
   currentNumFiles: number,
   currentNumRanks: number,
-  gameHistory: string[],
-  errorContext: string = ''
+  gameHistory: string[]
 ): string => {
-  let systemInstructions = '';
-  if (errorContext) {
-    systemInstructions += `ERROR: Your last response did not pass FEN validation. ${errorContext} Please try again and ensure your FEN matches your described actions.\n\n`;
-  }
   const playerRole = playerColor;
   const opponentRole = opponentColor;
   const terrainContextString = currentTerrain ? JSON.stringify(currentTerrain) : '{}';
@@ -91,38 +86,25 @@ const generatePrompt = (
     : "\n\nNo prior game history for this session yet.";
   const positionAnalysis = analyzeChessPosition(currentFen);
 
-  systemInstructions += `
-You are a chess game engine. Interpret the player and AI directives, update the board, and narrate the turn. Output a valid FEN and JSON as described below.
+  let systemInstructions = `
+You are a chess game engine. Interpret directives, update the board, and narrate the turn. Output a valid FEN and JSON.
 
-- Output only a single JSON object, no markdown or extra text.
-- The FEN must always match the described board state and actions. If the board is destroyed or the game ends, output an empty FEN.
-- Do not include any audit, checklist, or validation in your output.
+THIRD-PARTY ARMIES:
+- You may introduce new armies (e.g., demons, robots) with unique team colors.
+- On Black's turn, process Black and all third-party teams.
 
-INTERNAL ACTION LOG (REQUIRED):
-- For every move, output an array field internalActionLog. Each entry must be a structured object describing a single board change (e.g., { action: 'move'|'summon'|'remove'|'promote'|'resize'|'terrain', piece: 'symbol', color: 'team', from: 'square', to: 'square', reason: 'string', ... }).
-- This log must include every change you made to the board, including all piece moves, additions, removals, promotions, board resizing, and terrain changes.
-- The internalActionLog is for internal validation only and will not be shown to the user.
-- The audit system will use this log as ground truth to validate that the FEN matches the described actions. If you omit an action, it will be treated as a FEN error.
+AUDIT (MANDATORY, BRIEF):
+- Before outputting, perform this checklist:
+  - FEN matches all described actions for this turn.
+  - All piece additions/removals are described in the narrative.
+  - Each rank sums to the correct number of squares.
+  - If any mismatch, correct the FEN or the description before output.
+- Summarize your audit in an internalFenAudit field (1-2 sentences or checklist items, not user-facing).
 
 BOARD DIMENSIONS: ${currentNumFiles} files (columns) x ${currentNumRanks} ranks (rows)
 TERRAIN: ${terrainContextString}
 ${historyContextString}
 POSITION ANALYSIS: ${positionAnalysis}
-
-THIRD-PARTY ARMIES:
-- You may introduce new armies (e.g., demons, robots) with unique team colors (not 'white' or 'black').
-- On Black's turn, process Black and all third-party teams. Output each third-party team's move, FEN, and message in a thirdPartyResponses array.
-- Third-party teams can win. If so, state this in the gameMessage and their own message.
-
-INSTRUCTIONS:
-- Interpret the player's directive literally and comprehensively.
-- Use the game's mechanics (piece movement, HP, captures, summoning, terrain, board size, FEN, new pieces) to realize the command.
-- If the directive is ambiguous, make a reasonable interpretation that fulfills the intent and keeps the game going.
-- Only include the last 2 turns of game history for context.
-
-OUTPUT:
-- Always return a single JSON object as described below. Do not use markdown or extra text.
-- The FEN must always match the described board state and actions. If not, correct it before outputting.
 `;
 
   if (playerInput.startsWith(`It is your turn (${playerRole}). Choose one of the following legal standard chess moves`)) {
@@ -332,41 +314,96 @@ export const processMove = async (
   currentTerrain: Record<string, TerrainObject | null>,
   currentNumFiles: number,
   currentNumRanks: number,
-  gameHistory: string[],
-  _retryCount: number = 0,
-  errorContext: string = ''
+  gameHistory: string[]
 ): Promise<LLMResponse> => {
   if (!isGeminiClientInitialized()) {
     try {
+      // Attempt to initialize if not already. This will use the safe API key access.
       initializeGeminiClient();
     } catch (initError) {
       console.error("Critical: Failed to initialize Gemini Client in processMove fallback:", initError);
+      // Propagate error to stop further processing if initialization fails here.
       throw initError;
     }
   }
 
   if (!ai) {
+    // This state should ideally not be reached if initializeGeminiClient throws on failure.
     console.error("Gemini client (ai instance) is null in processMove. This indicates an issue with initialization. The API_KEY might be missing or invalid.");
     throw new Error("Gemini client is not available. Please ensure API_KEY environment variable is set and client is initialized.");
   }
 
-  let prompt = generatePrompt(currentFen, playerInput, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory, errorContext);
+  const prompt = generatePrompt(currentFen, playerInput, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory);
   let apiResponseText: string = '';
 
   try {
     console.log("Sending to Gemini - Current FEN:", currentFen, "Player Input:", playerInput, "Current Terrain:", currentTerrain, "Dimensions:", `${currentNumFiles}x${currentNumRanks}`, "History:", gameHistory);
+    
     const geminiApiResponse: GenerateContentResponse = await ai.models.generateContent({ 
         model: 'gemini-2.5-flash-preview-04-17',
         contents: prompt,
     });
+
     apiResponseText = geminiApiResponse.text; 
+    
     console.log("Raw Gemini API response text:", apiResponseText);
+
     let jsonStr = apiResponseText.trim();
+    // Remove code fences and language tags
     jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+    // Remove any trailing or leading backticks or whitespace
     jsonStr = jsonStr.replace(/^```|```$/g, '').trim();
+    // Remove control characters except for valid JSON whitespace (tab, newline, carriage return)
     jsonStr = jsonStr.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+    // Now try to parse
     const parsedData = JSON.parse(jsonStr) as LLMResponse;
     console.log("Parsed Gemini JSON response:", parsedData);
+
+    if (!parsedData.playerMoveAttempt ||
+      typeof parsedData.boardAfterPlayerMoveFen !== 'string' ||
+      typeof parsedData.boardAfterOpponentMoveFen !== 'string' ||
+      !parsedData.opponentResponse ||
+      typeof parsedData.opponentResponse.llmInterpretation !== 'string' ||
+      typeof parsedData.gameMessage !== 'string'
+    ) {
+      console.error("LLM response missing critical fields or opponentResponse structure:", parsedData);
+      throw new Error("LLM response structure is not as expected. Must include interpretations, FENs, gameMessage, and opponentResponse with llmInterpretation.");
+    }
+
+    parsedData.playerMoveAttempt.isValidChessMove = true;
+    parsedData.playerMoveAttempt.userInput = playerInput;
+
+
+    if (parsedData.newPieceDefinitions && !Array.isArray(parsedData.newPieceDefinitions)) {
+      console.warn("LLM provided newPieceDefinitions but it's not an array. Ignoring.", parsedData.newPieceDefinitions);
+      delete parsedData.newPieceDefinitions;
+    }
+    if (parsedData.terrainChanges && !Array.isArray(parsedData.terrainChanges)) {
+      console.warn("LLM provided terrainChanges but it's not an array. Ignoring.", parsedData.terrainChanges);
+      delete parsedData.terrainChanges;
+    }
+
+    if (parsedData.playerMoveAttempt.appliedEffects && !Array.isArray(parsedData.playerMoveAttempt.appliedEffects)) {
+      parsedData.playerMoveAttempt.appliedEffects = [];
+    } else if (!parsedData.playerMoveAttempt.appliedEffects) {
+      parsedData.playerMoveAttempt.appliedEffects = [];
+    }
+
+    if (parsedData.opponentResponse.appliedEffects && !Array.isArray(parsedData.opponentResponse.appliedEffects)) {
+      parsedData.opponentResponse.appliedEffects = [];
+    } else if (!parsedData.opponentResponse.appliedEffects) {
+      parsedData.opponentResponse.appliedEffects = [];
+    }
+
+
+    console.log("FEN after player's piece move (from LLM):", parsedData.boardAfterPlayerMoveFen);
+    console.log("FEN after opponent's piece move (from LLM):", parsedData.boardAfterOpponentMoveFen);
+    if (parsedData.newPieceDefinitions && parsedData.newPieceDefinitions.length > 0) {
+      console.log("New piece definitions from LLM:", parsedData.newPieceDefinitions);
+    }
+    if (parsedData.terrainChanges && parsedData.terrainChanges.length > 0) {
+      console.log("Terrain changes from LLM:", parsedData.terrainChanges);
+    }
 
     // Strict FEN audit: player move
     const auditPlayer = auditFenTransition(
@@ -374,21 +411,25 @@ export const processMove = async (
       parsedData.boardAfterPlayerMoveFen,
       parsedData.playerMoveAttempt.llmInterpretation + ' ' + (parsedData.playerMoveAttempt.appliedEffects ? JSON.stringify(parsedData.playerMoveAttempt.appliedEffects) : '')
     );
+    if (!auditPlayer.isValid) {
+      console.error('FEN audit failed for player move:', auditPlayer);
+      // Optionally: throw or reject the move, or attach audit info to the response
+      parsedData.gameMessage += `\n[INTERNAL AUDIT: Player move FEN mismatch: ${auditPlayer.mismatches.join('; ')}]`;
+    }
+
     // Strict FEN audit: opponent move
     const auditOpponent = auditFenTransition(
       parsedData.boardAfterPlayerMoveFen,
       parsedData.boardAfterOpponentMoveFen,
       parsedData.opponentResponse.llmInterpretation + ' ' + (parsedData.opponentResponse.appliedEffects ? JSON.stringify(parsedData.opponentResponse.appliedEffects) : '')
     );
-    if (!auditPlayer.isValid || !auditOpponent.isValid) {
-      if (_retryCount < 2) {
-        const auditMsg = `Player audit: ${auditPlayer.mismatches.join('; ')} | Opponent audit: ${auditOpponent.mismatches.join('; ')}`;
-        return await processMove(currentFen, playerInput, playerColor, opponentColor, currentTerrain, currentNumFiles, currentNumRanks, gameHistory, _retryCount + 1, auditMsg);
-      } else {
-        throw new Error(`FEN audit failed after 2 retries. Player audit: ${auditPlayer.mismatches.join('; ')} | Opponent audit: ${auditOpponent.mismatches.join('; ')}`);
-      }
+    if (!auditOpponent.isValid) {
+      console.error('FEN audit failed for opponent move:', auditOpponent);
+      parsedData.gameMessage += `\n[INTERNAL AUDIT: Opponent move FEN mismatch: ${auditOpponent.mismatches.join('; ')}]`;
     }
+
     return parsedData;
+
   } catch (error: any) {
     console.error("Error calling Gemini API or parsing response:", error);
     if (error.message && (error.message.toLowerCase().includes("api key not valid") || error.message.toLowerCase().includes("api key invalid"))) {
@@ -400,6 +441,7 @@ export const processMove = async (
     if (apiResponseText && (apiResponseText.toLowerCase().includes("billing account not found") || apiResponseText.toLowerCase().includes("quota exceeded"))) {
       throw new Error(`Gemini API Error: ${apiResponseText}. Please check your Google Cloud project billing and API quotas.`);
     }
+    // Fallback error message
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Gemini API error: ${errorMessage}`);
   }
