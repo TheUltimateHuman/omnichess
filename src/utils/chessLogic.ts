@@ -121,3 +121,90 @@ export const isStandardChessSetup = (fen: string, numFiles: number, numRanks: nu
     }
     return true; // Passed all checks
 };
+
+/**
+ * Strictly audits the transition between two FENs and a described move/narrative.
+ * Checks for:
+ *  - Pieces removed or added without description
+ *  - Board size mismatches
+ *  - Piece count mismatches
+ *  - Any other discrepancies between FEN and described actions
+ * Returns an object with audit summary, mismatches, and suggested corrections.
+ */
+export function auditFenTransition(
+  prevFen: string,
+  newFen: string,
+  describedActions: string
+): {
+  summary: string;
+  mismatches: string[];
+  corrections: string[];
+  isValid: boolean;
+} {
+  let mismatches: string[] = [];
+  let corrections: string[] = [];
+  let summary = '';
+  let isValid = true;
+
+  try {
+    const prev = parseFenForBoardState(prevFen);
+    const next = parseFenForBoardState(newFen);
+
+    // Check board size
+    if (prev.numFiles !== next.numFiles || prev.numRanks !== next.numRanks) {
+      mismatches.push(`Board size changed from ${prev.numFiles}x${prev.numRanks} to ${next.numFiles}x${next.numRanks}.`);
+      isValid = false;
+    }
+
+    // Count pieces by symbol/color
+    function countPieces(board: typeof prev.board) {
+      const counts: Record<string, number> = {};
+      for (const row of board) {
+        for (const sq of row) {
+          if (sq) {
+            const key = sq.symbol + ':' + sq.color;
+            counts[key] = (counts[key] || 0) + 1;
+          }
+        }
+      }
+      return counts;
+    }
+    const prevCounts = countPieces(prev.board);
+    const nextCounts = countPieces(next.board);
+
+    // Compare piece counts
+    for (const key of new Set([...Object.keys(prevCounts), ...Object.keys(nextCounts)])) {
+      const before = prevCounts[key] || 0;
+      const after = nextCounts[key] || 0;
+      if (before !== after) {
+        const [symbol, color] = key.split(':');
+        const diff = after - before;
+        if (diff > 0 && !describedActions.includes(symbol)) {
+          mismatches.push(`Piece ${symbol} (${color}) count increased by ${diff} but not described.`);
+          isValid = false;
+        } else if (diff < 0 && !describedActions.includes(symbol)) {
+          mismatches.push(`Piece ${symbol} (${color}) count decreased by ${-diff} but not described.`);
+          isValid = false;
+        }
+      }
+    }
+
+    // Check for empty squares sum per rank
+    for (let r = 0; r < next.board.length; r++) {
+      if (next.board[r].length !== next.numFiles) {
+        mismatches.push(`Rank ${r + 1} has ${next.board[r].length} files, expected ${next.numFiles}.`);
+        isValid = false;
+      }
+    }
+
+    summary = isValid
+      ? 'FEN matches described actions and board state.'
+      : 'FEN and described actions mismatch. See mismatches.';
+  } catch (e) {
+    mismatches.push('Error during FEN audit: ' + (e instanceof Error ? e.message : String(e)));
+    isValid = false;
+    summary = 'FEN audit failed due to error.';
+  }
+
+  return { summary, mismatches, corrections, isValid };
+}

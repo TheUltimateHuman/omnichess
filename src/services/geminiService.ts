@@ -1,5 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { LLMResponse, TeamColor, TerrainObject } from '../utils/types';
+import { auditFenTransition } from '../utils/chessLogic';
 
 let ai: GoogleGenAI | null = null;
 
@@ -87,26 +88,28 @@ const generatePrompt = (
   const positionAnalysis = analyzeChessPosition(currentFen);
 
   let systemInstructions = `
-You are a highly adaptive chess game engine.
-Your current role is to act as: ${playerRole}.
-The FEN (${currentFen}) indicates it is ${playerRole}'s turn.
-The current board dimensions are: ${currentNumFiles} files (columns) by ${currentNumRanks} ranks (rows).
-The current terrain/objects on the board are: ${terrainContextString}
-${positionAnalysis}
-${historyContextString}
-
-The input directive for ${playerRole}'s turn is: "${playerInput}"
-
-SPECIAL INSTRUCTION BLOCK FOR THIS TURN:
+You are a chess game engine. Your job is to interpret player and AI directives, update the board, and narrate the turn. Always output a valid FEN and JSON as described below.
 
 THIRD-PARTY ARMIES:
-- You may dynamically introduce third-party armies (e.g., invading demons, angels, robots) in response to player input or as the story develops.
-- Each third-party army must be assigned a unique team color (not 'white' or 'black'), a display name, and a FEN character.
-- When it is Black's turn, you must process the moves for Black and for ALL active third-party armies. Output each third-party team's move, FEN, and message in a new array field called thirdPartyResponses.
-- Each third-party team can win the game. If a third-party team achieves victory, output this in the gameMessage and in their own message.
-- Third-party teams must have their own pieces, turns, and can interact with all other teams.
-- The board, FEN, and all logic must support more than two teams.
-- When outputting your JSON, include a thirdPartyResponses array, with one entry per active third-party team, each containing: team, llmInterpretation, parsed, appliedEffects, boardAfterTeamMoveFen, and gameMessage.
+- You may introduce new armies (e.g., demons, robots) with unique team colors (not 'white' or 'black').
+- On Black's turn, process Black and all third-party teams. Output each third-party team's move, FEN, and message in a thirdPartyResponses array.
+- Third-party teams can win. If so, state this in the gameMessage and their own message.
+
+GAME STATE CHECKING (MANDATORY):
+- For every described action, explicitly check that the FEN matches the narrative. Do not remove or add pieces unless the description says so.
+- After generating the FEN, perform a strict audit: For each rank, count pieces and empty squares, and confirm the sum matches the board size. For each described move, confirm the FEN reflects it. For each piece removed or added, confirm it is described in the narrative.
+- If any mismatch is found, correct the FEN or the description before outputting.
+- In your internalFenAudit, include a summary of this check and explicitly list any corrections made.
+
+INSTRUCTIONS:
+- Interpret the player's directive literally and comprehensively.
+- Use the game's mechanics (piece movement, HP, captures, summoning, terrain, board size, FEN, new pieces) to realize the command.
+- If the directive is ambiguous, make a reasonable interpretation that fulfills the intent and keeps the game going.
+- Only include the last 4 turns of game history for context.
+
+OUTPUT:
+- Always return a single JSON object as described below. Do not use markdown or extra text.
+- The FEN must always match the described board state and actions. If not, correct it before outputting.
 `;
 
   if (playerInput.startsWith(`It is your turn (${playerRole}). Choose one of the following legal standard chess moves`)) {
@@ -404,6 +407,29 @@ export const processMove = async (
     }
     if (parsedData.terrainChanges && parsedData.terrainChanges.length > 0) {
       console.log("Terrain changes from LLM:", parsedData.terrainChanges);
+    }
+
+    // Strict FEN audit: player move
+    const auditPlayer = auditFenTransition(
+      currentFen,
+      parsedData.boardAfterPlayerMoveFen,
+      parsedData.playerMoveAttempt.llmInterpretation + ' ' + (parsedData.playerMoveAttempt.appliedEffects ? JSON.stringify(parsedData.playerMoveAttempt.appliedEffects) : '')
+    );
+    if (!auditPlayer.isValid) {
+      console.error('FEN audit failed for player move:', auditPlayer);
+      // Optionally: throw or reject the move, or attach audit info to the response
+      parsedData.gameMessage += `\n[INTERNAL AUDIT: Player move FEN mismatch: ${auditPlayer.mismatches.join('; ')}]`;
+    }
+
+    // Strict FEN audit: opponent move
+    const auditOpponent = auditFenTransition(
+      parsedData.boardAfterPlayerMoveFen,
+      parsedData.boardAfterOpponentMoveFen,
+      parsedData.opponentResponse.llmInterpretation + ' ' + (parsedData.opponentResponse.appliedEffects ? JSON.stringify(parsedData.opponentResponse.appliedEffects) : '')
+    );
+    if (!auditOpponent.isValid) {
+      console.error('FEN audit failed for opponent move:', auditOpponent);
+      parsedData.gameMessage += `\n[INTERNAL AUDIT: Opponent move FEN mismatch: ${auditOpponent.mismatches.join('; ')}]`;
     }
 
     return parsedData;
