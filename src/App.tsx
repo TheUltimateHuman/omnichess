@@ -37,7 +37,6 @@ const App: React.FC = () => {
 
   const [teamOrder] = useState<TeamColor[]>(['white', 'black']);
   const [currentTeamIndex] = useState<number>(0);
-  const [dynamicTeams] = useState<Record<TeamColor, TeamInfo>>({});
 
   const [thirdPartyTeams, setThirdPartyTeams] = useState<ThirdPartyTeamInfo[]>([]);
 
