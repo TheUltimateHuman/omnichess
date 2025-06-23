@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { TeamColor, TeamInfo } from '../utils/types';
+import { TeamColor } from '../utils/types';
 import { TEAM_INFOS } from '../../constants';
 
 interface GameMessagesProps {
@@ -20,6 +20,7 @@ export const GameMessages: React.FC<GameMessagesProps> = ({ messages, winner, is
   let finalMessage = "";
   if (isGameOver) {
     if (winner && typeof winner === 'string' && TEAM_INFOS[winner]) finalMessage = `Game Over: ${TEAM_INFOS[winner].displayName} wins!`;
+    else if (winner && typeof winner === 'string') finalMessage = `Game Over: ${winner.charAt(0).toUpperCase() + winner.slice(1)} wins!`;
     else if (winner === 'draw') finalMessage = "Game Over: It's a draw!";
     else finalMessage = "Game Over!"; // Generic if winner somehow not set
   }

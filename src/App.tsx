@@ -4,7 +4,7 @@ import { MoveInput } from './components/MoveInput';
 import { GameMessages } from './components/GameMessages';
 import { processMove, initializeGeminiClient, isGeminiClientInitialized } from './services/geminiService';
 import { getInitialBoardFen, parseFenForBoardState, isStandardChessSetup } from './utils/chessLogic';
-import { TeamColor, LLMResponse, TerrainObject, PieceBoardState, ParsedFenData, Piece, TeamInfo } from './utils/types';
+import { TeamColor, LLMResponse, TerrainObject, PieceBoardState, ParsedFenData, Piece, TeamInfo, ThirdPartyTeamInfo, ThirdPartyResponseData } from './utils/types';
 import { DEFAULT_NEW_PIECE_MAX_HP, PIECE_FROM_FEN_CHAR } from '../constants';
 import { Chess, Move as ChessJSMove } from 'chess.js';
 
@@ -39,9 +39,42 @@ const App: React.FC = () => {
   const [currentTeamIndex] = useState<number>(0);
   const [dynamicTeams] = useState<Record<TeamColor, TeamInfo>>({});
 
+  const [thirdPartyTeams, setThirdPartyTeams] = useState<ThirdPartyTeamInfo[]>([]);
+
   const addMessage = useCallback((message: string) => {
     setGameMessages(prev => [...prev.slice(-15), message]); 
   }, []);
+
+  const handleLlmTurn = async (fenAfterPlayerMove: string, aiPromptInput: string) => {
+    setIsLoading(true);
+    try {
+      const response: LLMResponse = await processMove(
+        fenAfterPlayerMove, aiPromptInput, 'black', 'white',
+        boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM
+      );
+      addMessage(`Gemini (Black): ${response.gameMessage}`);
+      let finalFen = response.boardAfterOpponentMoveFen;
+      // Handle third-party teams
+      if (response.thirdPartyResponses && Array.isArray(response.thirdPartyResponses)) {
+        response.thirdPartyResponses.forEach((teamResp: ThirdPartyResponseData) => {
+          addMessage(`${teamResp.team}: ${teamResp.gameMessage}`);
+          finalFen = teamResp.boardAfterTeamMoveFen;
+          // Register new third-party teams if not already present
+          setThirdPartyTeams(prevTeams => {
+            if (!prevTeams.some(t => t.color === teamResp.team)) {
+              return [...prevTeams, { color: teamResp.team, displayName: teamResp.team.charAt(0).toUpperCase() + teamResp.team.slice(1) + ' Army', fenChar: teamResp.team[0], uiColor: '#FF00FF', isThirdParty: true }];
+            }
+            return prevTeams;
+          });
+        });
+      }
+      setBoardFen(finalFen);
+      setIsLoading(false);
+    } catch (e) {
+      setError('Error processing LLM turn: ' + (e instanceof Error ? e.message : String(e)));
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     console.log("App.tsx: Initial Gemini client initialization useEffect running.");
@@ -156,12 +189,17 @@ const App: React.FC = () => {
         const lastMessage = gameMessages.length > 0 ? gameMessages[gameMessages.length - 1] : "";
         if (lastMessage) {
             const lowerLastMessage = lastMessage.toLowerCase();
-            if (lowerLastMessage.includes("checkmate") || lowerLastMessage.includes("king captured")) {
+            if (lowerLastMessage.includes("checkmate") || lowerLastMessage.includes("king captured") || lowerLastMessage.includes("wins!")) {
                  if (lowerLastMessage.includes("white wins")) determinedWinner = 'white';
                  else if (lowerLastMessage.includes("black wins")) determinedWinner = 'black';
-                 else { 
-                    const lastPlayer = currentTeam === 'white' ? 'black' : 'white'; 
-                    if (lowerLastMessage.includes(lastPlayer)) determinedWinner = lastPlayer;
+                 else {
+                    // Check for third-party team win
+                    const thirdPartyWinner = thirdPartyTeams.find(t => lowerLastMessage.includes(t.color));
+                    if (thirdPartyWinner) determinedWinner = thirdPartyWinner.color;
+                    else {
+                      const lastPlayer = currentTeam === 'white' ? 'black' : 'white'; 
+                      if (lowerLastMessage.includes(lastPlayer)) determinedWinner = lastPlayer;
+                    }
                  }
                  gameOverMessage = lastMessage; 
                  gameActuallyOver = true;
@@ -175,6 +213,11 @@ const App: React.FC = () => {
                 if (lowerLastMessage.includes("white wins")) determinedWinner = 'white';
                 else if (lowerLastMessage.includes("black wins")) determinedWinner = 'black';
                 else if (lowerLastMessage.includes("draw")) determinedWinner = 'draw';
+                else {
+                  // Check for third-party team win
+                  const thirdPartyWinner = thirdPartyTeams.find(t => lowerLastMessage.includes(t.color));
+                  if (thirdPartyWinner) determinedWinner = thirdPartyWinner.color;
+                }
             }
         }
     }
@@ -186,7 +229,7 @@ const App: React.FC = () => {
           setIsGameOver(true);
         }
     }
-  }, [boardFen, currentTeam, addMessage, isGameOver, geminiReady, gameMessages, canonicalNumFiles, canonicalNumRanks]);
+  }, [boardFen, currentTeam, addMessage, isGameOver, geminiReady, gameMessages, canonicalNumFiles, canonicalNumRanks, thirdPartyTeams]);
 
 
   const applyLlmResponseSideEffects = useCallback((
@@ -408,20 +451,6 @@ const App: React.FC = () => {
             applyLlmResponseSideEffects(llmResponseForSideEffects, finalFenForTurn);
             const historyEntry = `Player (${humanPlayerActualColor}): ${currentTurnPlayerInputForHistory}\nGemini: ${llmResponseForSideEffects.gameMessage}`;
             setGameHistoryForLLM(prevHistory => [...prevHistory.slice(-4), historyEntry]); 
-
-            // Handle third-party teams
-            if (llmResponseForSideEffects.thirdPartyTeams && Array.isArray(llmResponseForSideEffects.thirdPartyTeams)) {
-              for (const teamTurn of llmResponseForSideEffects.thirdPartyTeams) {
-                addMessage(`Third Party (${teamTurn.teamColor}): ${teamTurn.teamMessage}`);
-                // Optionally, update the board FEN if the third party's move is the latest
-                setBoardFen(teamTurn.teamFen);
-                // Optionally, check for victory
-                if (teamTurn.teamMessage && teamTurn.teamMessage.toLowerCase().includes('win')) {
-                  setIsGameOver(true);
-                  setWinner(teamTurn.teamColor);
-                }
-              }
-            }
         }
 
     } catch (e: any) { 
@@ -437,7 +466,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [boardFen, currentTeam, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM, teamOrder, currentTeamIndex]); 
+  }, [boardFen, currentTeam, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM, teamOrder, currentTeamIndex, thirdPartyTeams]); 
 
 
   let displayNumFiles = canonicalNumFiles;

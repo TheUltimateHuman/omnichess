@@ -1,5 +1,5 @@
 import React from 'react';
-import { Piece, TeamColor, TerrainObject } from '../utils/types'; 
+import { Piece, TerrainObject } from '../utils/types'; 
 import { UNICODE_PIECES, TEAM_INFOS } from '../../constants';
 
 interface SquareProps {
@@ -36,7 +36,7 @@ export const Square: React.FC<SquareProps> = ({ piece, terrain, isDark, dynamicD
 
   const pieceStyle: React.CSSProperties = {
     ...pieceStyleOverride,
-    color: TEAM_INFOS[piece?.color]?.uiColor || (piece?.color === 'black' ? '#000000' : '#FFFFFF'),
+    color: piece && piece.color && TEAM_INFOS[piece.color] ? TEAM_INFOS[piece.color].uiColor : (piece?.color === 'black' ? '#000000' : piece?.color === 'white' ? '#FFFFFF' : '#FF00FF'),
     fontSize: 'clamp(1.25rem, 7vw, 2.25rem)',
   };
 

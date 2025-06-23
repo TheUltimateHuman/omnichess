@@ -79,22 +79,29 @@ export interface TerrainChangeDefinition {
   action: 'add' | 'remove' | 'create'; // Added 'create'
 }
 
-export interface ThirdPartyTeamTurn {
-  teamColor: TeamColor;
-  teamMove: string;
-  teamFen: string;
-  teamMessage: string;
+export interface ThirdPartyTeamInfo extends TeamInfo {
+  isThirdParty: true;
+  // Optionally, add more fields for lore, AI, etc.
+}
+
+export interface ThirdPartyResponseData {
+  team: TeamColor;
+  llmInterpretation: string;
+  parsed?: OpponentParsedMove | null;
+  appliedEffects?: any[];
+  boardAfterTeamMoveFen: string;
+  gameMessage: string;
 }
 
 export interface LLMResponse {
   playerMoveAttempt: LLMPlayerMoveAttempt;
   boardAfterPlayerMoveFen: string; 
-  opponentResponse: OpponentResponseData; // Changed from opponentMove
+  opponentResponse: OpponentResponseData;
   boardAfterOpponentMoveFen: string; 
   gameMessage: string;
   newPieceDefinitions?: NewPieceDefinition[];
   terrainChanges?: TerrainChangeDefinition[];
-  thirdPartyTeams?: ThirdPartyTeamTurn[];
+  thirdPartyResponses?: ThirdPartyResponseData[];
 }
 
 export interface TeamInfo {

@@ -99,18 +99,14 @@ The input directive for ${playerRole}'s turn is: "${playerInput}"
 
 SPECIAL INSTRUCTION BLOCK FOR THIS TURN:
 
-THIRD-PARTY ARMIES & DYNAMIC TEAMS:
-- You may introduce new armies (e.g., invading demons, angels, robots, etc.) in response to player actions or narrative events.
-- Each third-party army must be assigned a unique team color (not 'white' or 'black'), such as 'demon', 'red', 'blue', etc. Use a fitting color for the theme.
-- Third-party teams operate as their own army in the chess game, with their own pieces, rules, and victory conditions.
-- After Black's turn, process the turn for each active third-party team (in any order you choose). Output their moves, FEN updates, and messages in the same response as Black's turn.
-- Third-party teams can win the game. If a third-party team achieves victory, declare them as the winner in the game message and update the FEN accordingly.
-- When introducing a new team, add their info to the newPieceDefinitions and use a unique FEN character for their pieces.
-- The JSON output must include a 'thirdPartyTeams' array, where each entry contains:
-  - 'teamColor': the color of the third-party team (e.g., 'demon')
-  - 'teamMove': a description of the team's move(s) for this turn
-  - 'teamFen': the FEN string after this team's move (active player should be the next team in turn order)
-  - 'teamMessage': a summary of the team's action and any narrative or victory declaration
+THIRD-PARTY ARMIES:
+- You may dynamically introduce third-party armies (e.g., invading demons, angels, robots) in response to player input or as the story develops.
+- Each third-party army must be assigned a unique team color (not 'white' or 'black'), a display name, and a FEN character.
+- When it is Black's turn, you must process the moves for Black and for ALL active third-party armies. Output each third-party team's move, FEN, and message in a new array field called thirdPartyResponses.
+- Each third-party team can win the game. If a third-party team achieves victory, output this in the gameMessage and in their own message.
+- Third-party teams must have their own pieces, turns, and can interact with all other teams.
+- The board, FEN, and all logic must support more than two teams.
+- When outputting your JSON, include a thirdPartyResponses array, with one entry per active third-party team, each containing: team, llmInterpretation, parsed, appliedEffects, boardAfterTeamMoveFen, and gameMessage.
 `;
 
   if (playerInput.startsWith(`It is your turn (${playerRole}). Choose one of the following legal standard chess moves`)) {
@@ -292,17 +288,9 @@ You must return a single JSON object structured as follows:
     "appliedEffects": [/* optional details of changes */]
   },
   "boardAfterOpponentMoveFen": "FEN_string",
-  "thirdPartyTeams": [
-    {
-      "teamColor": "demon",
-      "teamMove": "Demon King advances to e4 and summons imps.",
-      "teamFen": "FEN_after_demon_move",
-      "teamMessage": "The Demon Army storms the board!"
-    }
-    // ... more teams as needed
-  ],
   "gameMessage": "Descriptive summary of the turn.",
-  "internalFenAudit": ["step-by-step audit here"]
+  "internalFenAudit": ["step-by-step audit here"],
+  "thirdPartyResponses": [/* { team, llmInterpretation, parsed, appliedEffects, boardAfterTeamMoveFen, gameMessage } */]
 }
 
 FEN STRING GUIDELINES:
