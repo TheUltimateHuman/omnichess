@@ -36,7 +36,7 @@ export const Square: React.FC<SquareProps> = ({ piece, terrain, isDark, dynamicD
 
   const pieceStyle: React.CSSProperties = {
     ...pieceStyleOverride,
-    color: piece?.color === PlayerColor.BLACK ? '#000000' : '#FFFFFF',
+    color: piece?.color === PlayerColor.BLACK ? '#000000' : piece?.color === PlayerColor.RED ? '#FF0000' : piece?.color === PlayerColor.BLUE ? '#0000FF' : '#FFFFFF',
     fontSize: 'clamp(1.25rem, 7vw, 2.25rem)',
   };
 

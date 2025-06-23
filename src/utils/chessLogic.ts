@@ -42,7 +42,12 @@ export const parseFenForBoardState = (fen: string): ParsedFenData => {
           board[r][fileIndex] = { symbol: pieceDetails.symbol, color: pieceDetails.color };
         } else {
           // This allows dynamic pieces not in PIECE_FROM_FEN_CHAR to be parsed initially
-          const color = (char === char.toUpperCase()) ? PlayerColor.WHITE : PlayerColor.BLACK;
+          let color: PlayerColor;
+          if (char === 'A') color = PlayerColor.RED;
+          else if (char === 'S') color = PlayerColor.BLUE;
+          else if (char === char.toUpperCase()) color = PlayerColor.WHITE;
+          else if (char === char.toLowerCase()) color = PlayerColor.BLACK;
+          else color = PlayerColor.WHITE;
           board[r][fileIndex] = { symbol: char, color: color };
         }
         fileIndex++;
@@ -64,7 +69,9 @@ export const parseFenForBoardState = (fen: string): ParsedFenData => {
 const getPlayerColorFromFenPart = (activeColorPart: string): PlayerColor => {
   if (activeColorPart === 'w') return PlayerColor.WHITE;
   if (activeColorPart === 'b') return PlayerColor.BLACK;
-  throw new Error("Invalid FEN: Active color is not 'w' or 'b'.");
+  if (activeColorPart === 'r') return PlayerColor.RED;
+  if (activeColorPart === 'u') return PlayerColor.BLUE;
+  throw new Error("Invalid FEN: Active color is not 'w', 'b', 'r', or 'u'.");
 };
 
 export const getPlayerColorFromFen = (fen: string): PlayerColor => {

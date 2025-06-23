@@ -13,6 +13,11 @@ interface DynamicPiecePrototype {
   maxHp: number;
 }
 
+enum TurnPhase {
+  WHITE = 'white',
+  LLM = 'llm',
+}
+
 const App: React.FC = () => {
   console.log('App.tsx: Component function body executing.');
   const initialFen = getInitialBoardFen();
@@ -34,6 +39,8 @@ const App: React.FC = () => {
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
   const [gameHistoryForLLM, setGameHistoryForLLM] = useState<string[]>([]);
+
+  const [turnPhase, setTurnPhase] = useState<TurnPhase>(TurnPhase.WHITE);
 
   const addMessage = useCallback((message: string) => {
     setGameMessages(prev => [...prev.slice(-15), message]); 
@@ -270,21 +277,18 @@ const App: React.FC = () => {
 
 
   const handlePlayerMove = useCallback(async (inputText: string) => {
-    if (!geminiReady || isGameOver) {
-        if (!geminiReady) {
-            addMessage("Error: Gemini client not ready. Cannot process move. Check console for API Key errors.");
-        }
-        return;
+    if (!geminiReady || isGameOver || turnPhase !== TurnPhase.WHITE) {
+      if (!geminiReady) {
+        addMessage("Error: Gemini client not ready. Cannot process move. Check console for API Key errors.");
+      }
+      return;
     }
-
     setIsLoading(true);
-    setError(null); // Clear previous move/processing errors
-
+    setError(null);
     let isStandardMovePath = false;
     let fenAfterPlayerStdMove: string | null = null;
     let playerStdMoveSan: string | null = null;
-    let humanPlayerActualColor = currentPlayer; 
-
+    let humanPlayerActualColor = PlayerColor.WHITE;
     const standardSetup = isStandardChessSetup(boardFen, canonicalNumFiles, canonicalNumRanks);
 
     if (standardSetup) {
@@ -348,7 +352,7 @@ const App: React.FC = () => {
                 setIsLoading(false); return; 
             }
 
-            const aiPlayerColor = getOpponentColor(humanPlayerActualColor);
+            const aiPlayerColor = PlayerColor.BLACK;
             
             const gameForAiTurn = new Chess(fenAfterPlayerStdMove);
             const legalAiMovesSan = gameForAiTurn.moves();
@@ -381,7 +385,7 @@ const App: React.FC = () => {
         } else { 
             addMessage(`You (${humanPlayerActualColor}): ${inputText}`);
             currentTurnPlayerInputForHistory = inputText;
-            const opponentColor = getOpponentColor(humanPlayerActualColor);
+            const opponentColor = PlayerColor.BLACK;
             console.log(`Current FEN before player '${humanPlayerActualColor}' input ('${inputText}'): ${boardFen}`);
             
             const response: LLMResponse = await processMove(
@@ -419,8 +423,43 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [boardFen, currentPlayer, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM]); 
+    setTurnPhase(TurnPhase.LLM);
+  }, [boardFen, currentPlayer, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM, turnPhase]); 
 
+  useEffect(() => {
+    if (turnPhase !== TurnPhase.LLM || isGameOver || !geminiReady) return;
+    (async () => {
+      setIsLoading(true);
+      // Enhanced prompt for LLM turn
+      const llmPrompt = `It is now the LLM's turn. Process the moves for Black, Red, and Blue teams simultaneously.\nIf Red or Blue achieve a win state (e.g., by capturing all enemy kings or fulfilling a custom victory condition), you MUST narrate this in the gameMessage, using a thematic phrase (e.g., 'Aliens win!' for Red, 'Sorcerers win!' for Blue, or another appropriate name if you have defined one for the team).\nIf Black wins, narrate as usual. If multiple teams win or the game ends in another way, narrate that clearly.`;
+      try {
+        const response: LLMResponse = await processMove(
+          boardFen,
+          llmPrompt,
+          PlayerColor.BLACK, // LLM acts as Black, but prompt covers all
+          PlayerColor.WHITE,
+          boardTerrain,
+          canonicalNumFiles,
+          canonicalNumRanks,
+          gameHistoryForLLM
+        );
+        setBoardFen(response.boardAfterOpponentMoveFen);
+        applyLlmResponseSideEffects(response, response.boardAfterOpponentMoveFen);
+        addMessage(`Gemini: ${response.gameMessage}`);
+        // Check for win state in the LLM's game message
+        if (/win/i.test(response.gameMessage)) {
+          setWinner(null); // We'll display the LLM's message directly
+          setIsGameOver(true);
+        } else {
+          setTurnPhase(TurnPhase.WHITE);
+        }
+      } catch (e) {
+        setError('Error processing LLM turn: ' + (e instanceof Error ? e.message : String(e)));
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [turnPhase, isGameOver, geminiReady, boardFen, boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM, applyLlmResponseSideEffects, addMessage]);
 
   let displayNumFiles = canonicalNumFiles;
   let displayNumRanks = canonicalNumRanks;
@@ -500,7 +539,9 @@ const App: React.FC = () => {
       {/* Right Column: Move Input and Controls */}
       <div className="w-full md:w-1/3 space-y-4 mt-4 md:mt-0">
         {error && <div className="p-3 bg-red-800 border border-red-600 text-white rounded-md my-4">{error}</div>}
-        <MoveInput onMoveSubmit={handlePlayerMove} isLoading={isLoading} />
+        {turnPhase === TurnPhase.WHITE && (
+          <MoveInput onMoveSubmit={handlePlayerMove} isLoading={isLoading} />
+        )}
         {/* Game Controls can go here if needed */}
       </div>
     </div>

@@ -1,7 +1,8 @@
-
 export enum PlayerColor {
   WHITE = 'white',
   BLACK = 'black',
+  RED = 'red', // Third-party/Red team
+  BLUE = 'blue', // Fourth-party/Blue team
 }
 
 export interface BasicPiece { // Piece info directly from FEN parsing, without HP

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { PlayerColor } from '../utils/types';
 
@@ -21,6 +20,8 @@ export const GameMessages: React.FC<GameMessagesProps> = ({ messages, winner, is
   if (isGameOver) {
     if (winner === PlayerColor.WHITE) finalMessage = "Game Over: White wins!";
     else if (winner === PlayerColor.BLACK) finalMessage = "Game Over: Black wins!";
+    else if (winner === PlayerColor.RED) finalMessage = "Game Over: Red wins!";
+    else if (winner === PlayerColor.BLUE) finalMessage = "Game Over: Blue wins!";
     else if (winner === 'draw') finalMessage = "Game Over: It's a draw!";
     else finalMessage = "Game Over!"; // Generic if winner somehow not set
   }

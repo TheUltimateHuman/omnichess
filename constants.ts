@@ -20,6 +20,8 @@ export const UNICODE_PIECES: Record<PlayerColor, Partial<Record<string, string>>
     'P': '♟︎\uFE0E',
     'W': '🐺\uFE0E', 
   },
+  [PlayerColor.RED]: {},
+  [PlayerColor.BLUE]: {},
 };
 
 export const INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -42,6 +44,7 @@ export const PIECE_FROM_FEN_CHAR: Record<string, Omit<BasicPiece, 'currentHp'> &
   'Q': { symbol: 'Q', color: PlayerColor.WHITE, maxHp: 7 },
   'K': { symbol: 'K', color: PlayerColor.WHITE, maxHp: 10 },
   'W': { symbol: 'W', color: PlayerColor.WHITE, maxHp: 4 }, // White Werewolf
+  // Do not include Red or Blue team pieces by default
 };
 
 export const DEFAULT_NEW_PIECE_MAX_HP = 3;
