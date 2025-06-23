@@ -80,9 +80,19 @@ const generatePrompt = (
 ): string => {
   const playerRole = playerColor;
   const opponentRole = opponentColor;
-  
+  const terrainContextString = currentTerrain ? JSON.stringify(currentTerrain) : '{}';
+  const historyContextString = gameHistory.length > 0
+    ? `\n\nRECENT GAME HISTORY (for context, most recent turn last):\n${gameHistory.join('\n---\n')}`
+    : "\n\nNo prior game history for this session yet.";
+  const positionAnalysis = analyzeChessPosition(currentFen);
+
   let systemInstructions = `
 You are a chess game engine. Your job is to interpret player and AI directives, update the board, and narrate the turn. Always output a valid FEN and JSON as described below.
+
+BOARD DIMENSIONS: ${currentNumFiles} files (columns) x ${currentNumRanks} ranks (rows)
+TERRAIN: ${terrainContextString}
+${historyContextString}
+POSITION ANALYSIS: ${positionAnalysis}
 
 THIRD-PARTY ARMIES:
 - You may introduce new armies (e.g., demons, robots) with unique team colors (not 'white' or 'black').
