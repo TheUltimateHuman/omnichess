@@ -13,10 +13,9 @@ interface DynamicPiecePrototype {
   maxHp: number;
 }
 
-enum TurnPhase {
-  WHITE = 'white',
-  LLM = 'llm',
-}
+const getNextPlayerColor = (current: PlayerColor): PlayerColor => {
+  return current === PlayerColor.WHITE ? PlayerColor.BLACK : PlayerColor.WHITE;
+};
 
 const App: React.FC = () => {
   console.log('App.tsx: Component function body executing.');
@@ -39,8 +38,6 @@ const App: React.FC = () => {
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
   const [gameHistoryForLLM, setGameHistoryForLLM] = useState<string[]>([]);
-
-  const [turnPhase, setTurnPhase] = useState<TurnPhase>(TurnPhase.WHITE);
 
   const addMessage = useCallback((message: string) => {
     setGameMessages(prev => [...prev.slice(-15), message]); 
@@ -277,7 +274,7 @@ const App: React.FC = () => {
 
 
   const handlePlayerMove = useCallback(async (inputText: string) => {
-    if (!geminiReady || isGameOver || turnPhase !== TurnPhase.WHITE) {
+    if (!geminiReady || isGameOver || currentPlayer !== PlayerColor.WHITE) {
       if (!geminiReady) {
         addMessage("Error: Gemini client not ready. Cannot process move. Check console for API Key errors.");
       }
@@ -423,20 +420,20 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-    setTurnPhase(TurnPhase.LLM);
-  }, [boardFen, currentPlayer, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM, turnPhase]); 
+    setCurrentPlayer(PlayerColor.BLACK);
+  }, [boardFen, currentPlayer, addMessage, geminiReady, boardTerrain, dynamicPiecePrototypes, canonicalNumFiles, canonicalNumRanks, applyLlmResponseSideEffects, isGameOver, gameHistoryForLLM]); 
 
   useEffect(() => {
-    if (turnPhase !== TurnPhase.LLM || isGameOver || !geminiReady) return;
+    if (currentPlayer !== PlayerColor.BLACK || isGameOver || !geminiReady) return;
     (async () => {
       setIsLoading(true);
-      // Enhanced prompt for LLM turn
-      const llmPrompt = `It is now the LLM's turn. Process the moves for Black, Red, and Blue teams simultaneously.\nIf Red or Blue achieve a win state (e.g., by capturing all enemy kings or fulfilling a custom victory condition), you MUST narrate this in the gameMessage, using a thematic phrase (e.g., 'Aliens win!' for Red, 'Sorcerers win!' for Blue, or another appropriate name if you have defined one for the team).\nIf Black wins, narrate as usual. If multiple teams win or the game ends in another way, narrate that clearly.`;
+      // Prompt the LLM to process only Black's move
+      const blackPrompt = `It is your turn (Black). Make a standard chess move for Black. If you wish to summon or activate Red or Blue pieces as a special action, you may do so, but only if the game context or player input allows it.`;
       try {
         const response: LLMResponse = await processMove(
           boardFen,
-          llmPrompt,
-          PlayerColor.BLACK, // LLM acts as Black, but prompt covers all
+          blackPrompt,
+          PlayerColor.BLACK,
           PlayerColor.WHITE,
           boardTerrain,
           canonicalNumFiles,
@@ -451,15 +448,15 @@ const App: React.FC = () => {
           setWinner(null); // We'll display the LLM's message directly
           setIsGameOver(true);
         } else {
-          setTurnPhase(TurnPhase.WHITE);
+          setCurrentPlayer(PlayerColor.WHITE);
         }
       } catch (e) {
-        setError('Error processing LLM turn: ' + (e instanceof Error ? e.message : String(e)));
+        setError('Error processing Black turn: ' + (e instanceof Error ? e.message : String(e)));
       } finally {
         setIsLoading(false);
       }
     })();
-  }, [turnPhase, isGameOver, geminiReady, boardFen, boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM, applyLlmResponseSideEffects, addMessage]);
+  }, [currentPlayer, isGameOver, geminiReady, boardFen, boardTerrain, canonicalNumFiles, canonicalNumRanks, gameHistoryForLLM, applyLlmResponseSideEffects, addMessage]);
 
   let displayNumFiles = canonicalNumFiles;
   let displayNumRanks = canonicalNumRanks;
@@ -539,7 +536,7 @@ const App: React.FC = () => {
       {/* Right Column: Move Input and Controls */}
       <div className="w-full md:w-1/3 space-y-4 mt-4 md:mt-0">
         {error && <div className="p-3 bg-red-800 border border-red-600 text-white rounded-md my-4">{error}</div>}
-        {turnPhase === TurnPhase.WHITE && (
+        {currentPlayer === PlayerColor.WHITE && (
           <MoveInput onMoveSubmit={handlePlayerMove} isLoading={isLoading} />
         )}
         {/* Game Controls can go here if needed */}
