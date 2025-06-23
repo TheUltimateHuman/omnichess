@@ -358,12 +358,13 @@ export const processMove = async (
     console.log("Raw Gemini API response text:", apiResponseText);
 
     let jsonStr = apiResponseText.trim();
-    const fenceRegex = /^```(?:json)?\s*\n?(.*?)\n?\s*```$/s;
-    const match = jsonStr.match(fenceRegex);
-    if (match && match[1]) {
-      jsonStr = match[1].trim();
-    }
-
+    // Remove code fences and language tags
+    jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+    // Remove any trailing or leading backticks or whitespace
+    jsonStr = jsonStr.replace(/^```|```$/g, '').trim();
+    // Remove control characters except for valid JSON whitespace (tab, newline, carriage return)
+    jsonStr = jsonStr.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+    // Now try to parse
     const parsedData = JSON.parse(jsonStr) as LLMResponse;
     console.log("Parsed Gemini JSON response:", parsedData);
 
